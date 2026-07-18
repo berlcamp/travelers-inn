@@ -92,19 +92,27 @@ export function WalkInDialog({
     );
   }, [selectedType, stayType, checkIn, checkOut]);
 
-  // Debounced availability check whenever type/dates change.
+  // Debounced availability check whenever type/dates change. All state updates
+  // happen inside the deferred timeout (never synchronously in the effect body)
+  // to avoid cascading re-renders.
   useEffect(() => {
-    if (!roomTypeId || !checkIn || !checkOut) {
-      setAvailable(null);
-      return;
-    }
-    setChecking(true);
+    let cancelled = false;
     const handle = setTimeout(async () => {
+      if (!roomTypeId || !checkIn || !checkOut) {
+        if (!cancelled) setAvailable(null);
+        return;
+      }
+      if (!cancelled) setChecking(true);
       const result = await checkAvailability(roomTypeId, checkIn, checkOut);
-      setAvailable(result.ok ? result.data.count : 0);
-      setChecking(false);
+      if (!cancelled) {
+        setAvailable(result.ok ? result.data.count : 0);
+        setChecking(false);
+      }
     }, 350);
-    return () => clearTimeout(handle);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
   }, [roomTypeId, checkIn, checkOut]);
 
   const priceError = priceQuote && "error" in priceQuote ? priceQuote.error : null;
