@@ -78,5 +78,24 @@ begin
       update booking.rooms set status = 'occupied'
         where id = (select room_id from booking.bookings where id = v_b);
     end if;
+
+    -- A completed past stay, paid in full a couple of days ago — gives the
+    -- revenue / occupancy trends some history to show.
+    v_b := (booking.fn_create_booking(
+      'Rosa Delgado', '09990001111', null,
+      (select id from booking.room_types where lower(name) = 'standard single'),
+      'nightly',
+      date_trunc('day', now()) - interval '3 days' + interval '14 hours',
+      date_trunc('day', now()) - interval '1 day' + interval '12 hours',
+      'walk_in', null
+    )).id;
+    update booking.bookings set status = 'checked_out' where id = v_b;
+    insert into booking.payments (booking_id, amount, method, created_at)
+    values (
+      v_b,
+      (select quoted_total from booking.bookings where id = v_b),
+      'cash',
+      date_trunc('day', now()) - interval '2 days' + interval '11 hours'
+    );
   end if;
 end $$;

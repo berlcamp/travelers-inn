@@ -10,16 +10,16 @@ export function TrendBars({
   format: "peso" | "count";
 }) {
   return (
-    <div className="flex items-end gap-2" style={{ height: 120 }}>
+    <div className="flex h-[120px] items-end gap-2">
       {points.map((p, i) => {
         const pct = p.max > 0 ? Math.round((100 * p.value) / p.max) : 0;
         const label = format === "peso" ? peso.format(p.value) : String(p.value);
         return (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+          <div key={i} className="flex h-full flex-1 flex-col items-center gap-1.5">
             <div className="flex w-full flex-1 items-end">
               <div
                 className="bg-primary/80 hover:bg-primary w-full rounded-t-md transition-colors"
-                style={{ height: `${Math.max(pct, p.value > 0 ? 6 : 0)}%` }}
+                style={{ height: `${p.value > 0 ? Math.max(pct, 6) : 0}%` }}
                 title={label}
               />
             </div>
