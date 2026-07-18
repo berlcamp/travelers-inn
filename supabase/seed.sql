@@ -1,0 +1,4 @@
+-- Travelers Inn · local seed data.
+-- Intentionally empty for M1. Room types, rooms, and demo bookings are seeded
+-- in later milestones. The first Google sign-in bootstraps the admin/owner
+-- account via booking.fn_claim_invitation().

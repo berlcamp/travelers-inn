@@ -8,3 +8,7 @@ supabase/.branches/
 tsconfig.tsbuildinfo
 *.log
 .DS_Store
+
+# test/tooling artifacts
+.playwright-mcp/
+login-page.png
