@@ -88,4 +88,12 @@ Plans: `docs/superpowers/plans/`
   the admin client (fn stays off the anon grant) with future-date/max-stay
   guards; `listPortalAvailability` computes per-type availability + price. 2
   portal DB tests (27 total). Portal booking appears in staff `/bookings` unpaid.
-- Next: M6 Reports/dashboard.
+- **M6 Reports & Dashboard — DONE**: the placeholder dashboard now shows real
+  figures — arrivals/departures today, in-house, tonight's occupancy %, revenue
+  today, outstanding balance, and 7-day revenue & occupancy trend bars. Metrics
+  are pure functions in `features/reports/reports.ts` (`computeDashboard`),
+  fetched by `features/reports/repository.ts`; arrivals/departures lists reuse
+  the booking manage dialog. 7 pure-function unit tests via
+  `node --experimental-strip-types` (34 total).
+- **ALL SIX MILESTONES COMPLETE.** Whole product live: staff auth, rooms/rates,
+  booking engine + walk-ins, front-desk ops, public portal, dashboard.
