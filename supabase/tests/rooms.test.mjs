@@ -35,7 +35,9 @@ async function main() {
   console.log("room_types + rooms");
   await resetIdentity();
   const svc = adminBooking();
-  // Clean slate for inventory too.
+  // Clean slate for inventory too. Bookings reference rooms (FK on delete
+  // restrict), so they must go first or the room delete silently no-ops.
+  await svc.from("bookings").delete().not("id", "is", null);
   await svc.from("rooms").delete().not("id", "is", null);
   await svc.from("room_types").delete().not("id", "is", null);
 
@@ -117,7 +119,8 @@ async function main() {
     assert.ok(data.length >= 1, "anon should read at least the created type");
   });
 
-  // Cleanup.
+  // Cleanup (bookings first — FK to rooms).
+  await svc.from("bookings").delete().not("id", "is", null);
   await svc.from("rooms").delete().not("id", "is", null);
   await svc.from("room_types").delete().not("id", "is", null);
   await resetIdentity();

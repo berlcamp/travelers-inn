@@ -68,4 +68,10 @@ Plans: `docs/superpowers/plans/`
 - **M2 Rooms & Rates — DONE**: room_types + rooms tables (public-read RLS),
   shared data-table/form-fields, admin CRUD for room types, rooms list with
   inline housekeeping status, demo seed, room DB/RLS tests.
-- Next: M3 Bookings core → M4 Front desk ops → M5 Public portal → M6 Reports.
+- **M3 Bookings Core — DONE**: bookings table with `tstzrange` + GiST
+  `no_overlap` exclusion constraint (the double-booking guarantee);
+  `fn_create_booking` (auto-assign room, authoritative nightly/hourly pricing,
+  race-safe) + `fn_count_available`; bookings list, walk-in quick-book dialog
+  with live availability + price preview; cancel frees the room; 8 engine tests.
+  Booking status flow (check-in/out, no-show) and payments arrive in M4.
+- Next: M4 Front desk ops → M5 Public portal → M6 Reports.

@@ -29,3 +29,34 @@ from (
 ) as r(type_name, label, status)
 join booking.room_types rt on lower(rt.name) = lower(r.type_name)
 where not exists (select 1 from booking.rooms);
+
+-- Demo bookings via the real engine (auto-assigns a room, prices from rates).
+do $$
+begin
+  if not exists (select 1 from booking.bookings) then
+    perform booking.fn_create_booking(
+      'Maria Santos', '09171234567', 'maria@example.com',
+      (select id from booking.room_types where lower(name) = 'standard double'),
+      'nightly',
+      date_trunc('day', now()) + interval '14 hours',
+      date_trunc('day', now()) + interval '2 days 12 hours',
+      'staff', null
+    );
+    perform booking.fn_create_booking(
+      'Jose Rizal', '09980000000', null,
+      (select id from booking.room_types where lower(name) = 'standard single'),
+      'hourly',
+      date_trunc('day', now()) + interval '10 hours',
+      date_trunc('day', now()) + interval '13 hours',
+      'walk_in', null
+    );
+    perform booking.fn_create_booking(
+      'Andres Bonifacio', null, null,
+      (select id from booking.room_types where lower(name) = 'deluxe twin'),
+      'nightly',
+      date_trunc('day', now()) + interval '1 day 14 hours',
+      date_trunc('day', now()) + interval '3 days 12 hours',
+      'portal', null
+    );
+  end if;
+end $$;
