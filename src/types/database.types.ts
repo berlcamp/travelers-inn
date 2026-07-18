@@ -39,6 +39,81 @@ export type Database = {
         }
         Relationships: []
       }
+      bookings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          guest_email: string | null
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          notes: string | null
+          payment_status: Database["booking"]["Enums"]["payment_status"]
+          period: unknown
+          quoted_total: number
+          reference_code: string
+          room_id: string
+          room_type_id: string
+          source: Database["booking"]["Enums"]["booking_source"]
+          status: Database["booking"]["Enums"]["booking_status"]
+          stay_type: Database["booking"]["Enums"]["stay_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          guest_email?: string | null
+          guest_name: string
+          guest_phone?: string | null
+          id?: string
+          notes?: string | null
+          payment_status?: Database["booking"]["Enums"]["payment_status"]
+          period: unknown
+          quoted_total: number
+          reference_code?: string
+          room_id: string
+          room_type_id: string
+          source?: Database["booking"]["Enums"]["booking_source"]
+          status?: Database["booking"]["Enums"]["booking_status"]
+          stay_type: Database["booking"]["Enums"]["stay_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          guest_email?: string | null
+          guest_name?: string
+          guest_phone?: string | null
+          id?: string
+          notes?: string | null
+          payment_status?: Database["booking"]["Enums"]["payment_status"]
+          period?: unknown
+          quoted_total?: number
+          reference_code?: string
+          room_id?: string
+          room_type_id?: string
+          source?: Database["booking"]["Enums"]["booking_source"]
+          status?: Database["booking"]["Enums"]["booking_status"]
+          stay_type?: Database["booking"]["Enums"]["stay_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_room_type_id_fkey"
+            columns: ["room_type_id"]
+            isOneToOne: false
+            referencedRelation: "room_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -206,16 +281,72 @@ export type Database = {
     }
     Functions: {
       fn_claim_invitation: { Args: never; Returns: boolean }
+      fn_count_available: {
+        Args: {
+          p_check_in: string
+          p_check_out: string
+          p_room_type_id: string
+        }
+        Returns: number
+      }
+      fn_create_booking: {
+        Args: {
+          p_check_in: string
+          p_check_out: string
+          p_guest_email: string
+          p_guest_name: string
+          p_guest_phone: string
+          p_notes?: string
+          p_room_type_id: string
+          p_source: Database["booking"]["Enums"]["booking_source"]
+          p_stay_type: Database["booking"]["Enums"]["stay_type"]
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          guest_email: string | null
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          notes: string | null
+          payment_status: Database["booking"]["Enums"]["payment_status"]
+          period: unknown
+          quoted_total: number
+          reference_code: string
+          room_id: string
+          room_type_id: string
+          source: Database["booking"]["Enums"]["booking_source"]
+          status: Database["booking"]["Enums"]["booking_status"]
+          stay_type: Database["booking"]["Enums"]["stay_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fn_has_role: {
         Args: { p_role: Database["booking"]["Enums"]["user_role"] }
         Returns: boolean
       }
       fn_is_active_user: { Args: never; Returns: boolean }
       fn_is_admin: { Args: never; Returns: boolean }
+      gen_reference_code: { Args: never; Returns: string }
     }
     Enums: {
+      booking_source: "portal" | "walk_in" | "staff"
+      booking_status:
+        | "confirmed"
+        | "checked_in"
+        | "checked_out"
+        | "cancelled"
+        | "no_show"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
+      payment_status: "unpaid" | "partial" | "paid"
       room_status: "vacant" | "occupied" | "cleaning" | "out_of_service"
+      stay_type: "nightly" | "hourly"
       user_role: "admin" | "front_desk"
     }
     CompositeTypes: {
@@ -344,8 +475,18 @@ export type CompositeTypes<
 export const Constants = {
   booking: {
     Enums: {
+      booking_source: ["portal", "walk_in", "staff"],
+      booking_status: [
+        "confirmed",
+        "checked_in",
+        "checked_out",
+        "cancelled",
+        "no_show",
+      ],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
+      payment_status: ["unpaid", "partial", "paid"],
       room_status: ["vacant", "occupied", "cleaning", "out_of_service"],
+      stay_type: ["nightly", "hourly"],
       user_role: ["admin", "front_desk"],
     },
   },
