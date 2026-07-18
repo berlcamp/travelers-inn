@@ -37,10 +37,10 @@ begin
   select coalesce(sum(amount), 0) into v_paid from booking.payments where booking_id = v_booking;
   select quoted_total into v_total from booking.bookings where id = v_booking;
   update booking.bookings set payment_status =
-    case when v_total is null then 'unpaid'
-         when v_paid >= v_total and v_paid > 0 then 'paid'
-         when v_paid > 0 then 'partial'
-         else 'unpaid' end
+    (case when v_total is null then 'unpaid'
+          when v_paid >= v_total and v_paid > 0 then 'paid'
+          when v_paid > 0 then 'partial'
+          else 'unpaid' end)::booking.payment_status
   where id = v_booking;
   return null;
 end;
