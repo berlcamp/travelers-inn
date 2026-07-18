@@ -17,6 +17,10 @@ export const roomTypeSchema = z.object({
     .or(z.literal("").transform(() => null)),
   is_active: z.boolean().default(true),
 });
+// z.coerce on numeric fields: FormInput hands react-hook-form the input's
+// STRING value, so the form is typed with the INPUT type (z.input) and the
+// action receives the coerced OUTPUT type (z.infer). See prime-hrm M3.2-T6.
+export type RoomTypeFormValues = z.input<typeof roomTypeSchema>;
 export type RoomTypeInput = z.infer<typeof roomTypeSchema>;
 
 export const ROOM_STATUSES = ["vacant", "occupied", "cleaning", "out_of_service"] as const;
@@ -36,4 +40,5 @@ export const roomSchema = z.object({
   status: z.enum(ROOM_STATUSES).default("vacant"),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
 });
+export type RoomFormValues = z.input<typeof roomSchema>;
 export type RoomInput = z.infer<typeof roomSchema>;
