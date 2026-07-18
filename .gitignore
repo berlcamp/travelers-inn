@@ -12,3 +12,5 @@ tsconfig.tsbuildinfo
 # test/tooling artifacts
 .playwright-mcp/
 login-page.png
+
+*.png

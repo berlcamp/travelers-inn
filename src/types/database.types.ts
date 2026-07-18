@@ -105,6 +105,80 @@ export type Database = {
         }
         Relationships: []
       }
+      room_types: {
+        Row: {
+          capacity: number
+          created_at: string
+          description: string | null
+          hourly_rate: number | null
+          id: string
+          is_active: boolean
+          name: string
+          nightly_rate: number
+          updated_at: string
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          description?: string | null
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          nightly_rate: number
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          description?: string | null
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          nightly_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rooms: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          notes: string | null
+          room_type_id: string
+          status: Database["booking"]["Enums"]["room_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          notes?: string | null
+          room_type_id: string
+          status?: Database["booking"]["Enums"]["room_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          room_type_id?: string
+          status?: Database["booking"]["Enums"]["room_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rooms_room_type_id_fkey"
+            columns: ["room_type_id"]
+            isOneToOne: false
+            referencedRelation: "room_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -141,6 +215,7 @@ export type Database = {
     }
     Enums: {
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
+      room_status: "vacant" | "occupied" | "cleaning" | "out_of_service"
       user_role: "admin" | "front_desk"
     }
     CompositeTypes: {
@@ -270,6 +345,7 @@ export const Constants = {
   booking: {
     Enums: {
       invitation_status: ["pending", "accepted", "revoked", "expired"],
+      room_status: ["vacant", "occupied", "cleaning", "out_of_service"],
       user_role: ["admin", "front_desk"],
     },
   },
