@@ -150,6 +150,44 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          booking_id: string
+          created_at: string
+          id: string
+          method: Database["booking"]["Enums"]["payment_method"]
+          recorded_by: string | null
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          booking_id: string
+          created_at?: string
+          id?: string
+          method?: Database["booking"]["Enums"]["payment_method"]
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          booking_id?: string
+          created_at?: string
+          id?: string
+          method?: Database["booking"]["Enums"]["payment_method"]
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -280,6 +318,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fn_available_rooms: {
+        Args: {
+          p_check_in: string
+          p_check_out: string
+          p_exclude_booking?: string
+          p_room_type_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          label: string
+          notes: string | null
+          room_type_id: string
+          status: Database["booking"]["Enums"]["room_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rooms"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fn_claim_invitation: { Args: never; Returns: boolean }
       fn_count_available: {
         Args: {
@@ -344,6 +405,7 @@ export type Database = {
         | "cancelled"
         | "no_show"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
+      payment_method: "cash" | "gcash" | "card" | "bank_transfer" | "other"
       payment_status: "unpaid" | "partial" | "paid"
       room_status: "vacant" | "occupied" | "cleaning" | "out_of_service"
       stay_type: "nightly" | "hourly"
@@ -484,6 +546,7 @@ export const Constants = {
         "no_show",
       ],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
+      payment_method: ["cash", "gcash", "card", "bank_transfer", "other"],
       payment_status: ["unpaid", "partial", "paid"],
       room_status: ["vacant", "occupied", "cleaning", "out_of_service"],
       stay_type: ["nightly", "hourly"],

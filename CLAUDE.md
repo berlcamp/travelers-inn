@@ -73,5 +73,11 @@ Plans: `docs/superpowers/plans/`
   `fn_create_booking` (auto-assign room, authoritative nightly/hourly pricing,
   race-safe) + `fn_count_available`; bookings list, walk-in quick-book dialog
   with live availability + price preview; cancel frees the room; 8 engine tests.
-  Booking status flow (check-in/out, no-show) and payments arrive in M4.
-- Next: M4 Front desk ops → M5 Public portal → M6 Reports.
+- **M4 Front Desk Ops — DONE**: payments table + trigger deriving
+  `bookings.payment_status`; `fn_available_rooms`; check-in/out/no-show actions
+  (sync room housekeeping status); record-payment + room reassignment; a booking
+  **manage dialog** hosting all of it; a rooms × 14-days occupancy **calendar**;
+  7 front-desk DB tests (25 total). Note: booking action helpers live in
+  `features/bookings/front-desk-actions.ts` (loadBookingDetail, checkIn,
+  checkOut, markNoShow, recordPayment, reassignRoom).
+- Next: M5 Public portal → M6 Reports/dashboard.
