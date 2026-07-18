@@ -19,12 +19,16 @@ function hash(s: string): number {
 
 export function RoomVisual({
   name,
+  index,
   className,
 }: {
   name: string;
+  // When rendered in a list, pass the position so adjacent cards differ;
+  // standalone (e.g. the booking page) falls back to a name hash.
+  index?: number;
   className?: string;
 }) {
-  const palette = PALETTES[hash(name) % PALETTES.length];
+  const palette = PALETTES[(index ?? hash(name)) % PALETTES.length];
   return (
     <div
       className={cn(

@@ -7,11 +7,13 @@ import type { AvailabilityOption } from "@/features/portal/repository";
 
 export function RoomTypeCard({
   option,
+  index,
   checkIn,
   checkOut,
   stay,
 }: {
   option: AvailabilityOption;
+  index?: number;
   checkIn: string;
   checkOut: string;
   stay: "nightly" | "hourly";
@@ -25,7 +27,7 @@ export function RoomTypeCard({
 
   return (
     <article className="group border-border/70 bg-card flex flex-col overflow-hidden rounded-2xl border transition-shadow hover:shadow-lg">
-      <RoomVisual name={option.name} className="h-40" />
+      <RoomVisual name={option.name} index={index} className="h-40" />
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
