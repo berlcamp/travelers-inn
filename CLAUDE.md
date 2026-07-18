@@ -65,5 +65,7 @@ Plans: `docs/superpowers/plans/`
 
 - **M1 Foundation — DONE**: schema, invite gate, Google auth, app shell,
   dashboard placeholder, invite-claim tests.
-- Next: M2 Rooms & rates → M3 Bookings core → M4 Front desk ops → M5 Public
-  portal → M6 Reports/dashboard.
+- **M2 Rooms & Rates — DONE**: room_types + rooms tables (public-read RLS),
+  shared data-table/form-fields, admin CRUD for room types, rooms list with
+  inline housekeeping status, demo seed, room DB/RLS tests.
+- Next: M3 Bookings core → M4 Front desk ops → M5 Public portal → M6 Reports.
