@@ -80,4 +80,12 @@ Plans: `docs/superpowers/plans/`
   7 front-desk DB tests (25 total). Note: booking action helpers live in
   `features/bookings/front-desk-actions.ts` (loadBookingDetail, checkIn,
   checkOut, markNoShow, recordPayment, reassignRoom).
-- Next: M5 Public portal → M6 Reports/dashboard.
+- **M5 Public Portal — DONE**: public no-login `(portal)` route group (root `/`
+  is now the portal home; old redirect page removed) with a distinct editorial
+  look (Fraunces display font, gradient room visuals). Search availability →
+  room cards with prices → book with contact details → **auto-confirmed** with a
+  reference code. `createPortalBooking` (source `portal`) runs server-side via
+  the admin client (fn stays off the anon grant) with future-date/max-stay
+  guards; `listPortalAvailability` computes per-type availability + price. 2
+  portal DB tests (27 total). Portal booking appears in staff `/bookings` unpaid.
+- Next: M6 Reports/dashboard.
