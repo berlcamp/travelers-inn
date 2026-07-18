@@ -36,19 +36,22 @@ create or replace function booking.fn_create_booking(
 ) returns booking.bookings language plpgsql security definer set search_path = '' as $$
 declare
   v_type booking.room_types;
-  v_period tstzrange := tstzrange(p_check_in, p_check_out, '[)');
+  v_period tstzrange;
   v_units int;
   v_total numeric(10,2);
   v_room record;
   v_booking booking.bookings;
 begin
+  -- Validate before constructing the range: tstzrange() itself throws on an
+  -- inverted window, which would pre-empt this friendly message.
   if p_check_out <= p_check_in then
-    raise exception 'invalid_period' using message = 'Check-out must be after check-in.';
+    raise exception 'Check-out must be after check-in.';
   end if;
+  v_period := tstzrange(p_check_in, p_check_out, '[)');
 
   select * into v_type from booking.room_types where id = p_room_type_id and is_active;
   if v_type.id is null then
-    raise exception 'inactive_type' using message = 'That room type is not bookable.';
+    raise exception 'That room type is not bookable.';
   end if;
 
   if p_stay_type = 'nightly' then
@@ -56,7 +59,7 @@ begin
     v_total := v_units * v_type.nightly_rate;
   else
     if v_type.hourly_rate is null then
-      raise exception 'hourly_unavailable' using message = 'This room type has no hourly rate.';
+      raise exception 'This room type has no hourly rate.';
     end if;
     v_units := greatest(1, ceil(extract(epoch from (p_check_out - p_check_in)) / 3600.0)::int);
     v_total := v_units * v_type.hourly_rate;
@@ -90,7 +93,7 @@ begin
     end;
   end loop;
 
-  raise exception 'no_availability' using message = 'No rooms of that type are free for those dates.';
+  raise exception 'No rooms of that type are free for those dates.';
 end;
 $$;
 
