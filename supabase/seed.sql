@@ -1,4 +1,31 @@
 -- Travelers Inn · local seed data.
--- Intentionally empty for M1. Room types, rooms, and demo bookings are seeded
--- in later milestones. The first Google sign-in bootstraps the admin/owner
--- account via booking.fn_claim_invitation().
+-- The first Google sign-in bootstraps the admin/owner via
+-- booking.fn_claim_invitation(). Below we seed demo room types + rooms so the
+-- staff pages have content locally. Guarded with NOT EXISTS so re-runs are safe.
+
+insert into booking.room_types (name, description, capacity, nightly_rate, hourly_rate)
+select t.name, t.description, t.capacity, t.nightly_rate, t.hourly_rate
+from (
+  values
+    ('Standard Single', 'Cozy room for solo travelers', 1, 900.00, 150.00),
+    ('Standard Double', 'Comfortable room with a queen bed', 2, 1400.00, 220.00),
+    ('Deluxe Twin', 'Two single beds, ideal for friends', 2, 1700.00, 260.00),
+    ('Family Suite', 'Spacious suite for the whole family', 4, 2600.00, null)
+) as t(name, description, capacity, nightly_rate, hourly_rate)
+where not exists (select 1 from booking.room_types);
+
+insert into booking.rooms (room_type_id, label, status)
+select rt.id, r.label, r.status::booking.room_status
+from (
+  values
+    ('Standard Single', '101', 'vacant'),
+    ('Standard Single', '102', 'cleaning'),
+    ('Standard Double', '201', 'vacant'),
+    ('Standard Double', '202', 'occupied'),
+    ('Standard Double', '203', 'vacant'),
+    ('Deluxe Twin', '301', 'vacant'),
+    ('Deluxe Twin', '302', 'out_of_service'),
+    ('Family Suite', '401', 'vacant')
+) as r(type_name, label, status)
+join booking.room_types rt on lower(rt.name) = lower(r.type_name)
+where not exists (select 1 from booking.rooms);
