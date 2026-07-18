@@ -4,7 +4,9 @@ project_id = "travelers-inn"
 
 [api]
 enabled = true
-port = 54321
+# travelers-inn uses the 546xx range to coexist with other local stacks
+# (prime-hrm 543xx, hris 544xx, point-of-sale 555xx).
+port = 54621
 # Custom schema `booking` is exposed alongside the defaults.
 schemas = ["booking", "public", "graphql_public"]
 extra_search_path = ["booking", "public", "extensions"]
@@ -14,14 +16,14 @@ max_rows = 1000
 enabled = false
 
 [db]
-port = 54322
-shadow_port = 54320
+port = 54622
+shadow_port = 54620
 health_timeout = "2m"
 major_version = 17
 
 [db.pooler]
 enabled = false
-port = 54329
+port = 54629
 pool_mode = "transaction"
 default_pool_size = 20
 max_client_conn = 100
@@ -44,13 +46,13 @@ enabled = true
 
 [studio]
 enabled = true
-port = 54323
+port = 54623
 api_url = "http://127.0.0.1"
 openai_api_key = "env(OPENAI_API_KEY)"
 
 [local_smtp]
 enabled = true
-port = 54324
+port = 54624
 
 [storage]
 enabled = true
@@ -145,7 +147,7 @@ enabled = false
 [edge_runtime]
 enabled = true
 policy = "per_worker"
-inspector_port = 8083
+inspector_port = 8093
 deno_version = 2
 
 [analytics]
@@ -153,7 +155,7 @@ deno_version = 2
 # fails under Colima's virtiofs ("operation not supported") and takes the whole
 # stack down. Cost is only the local Studio "Logs" pane.
 enabled = false
-port = 54327
+port = 54627
 backend = "postgres"
 
 [experimental]
