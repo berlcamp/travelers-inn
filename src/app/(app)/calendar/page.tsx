@@ -32,13 +32,23 @@ export default async function CalendarPage({
         description={`Room availability across ${DAYS} days.`}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon-sm" render={<Link href={`/calendar?start=${data.prevISO}`} />}>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              nativeButton={false}
+              render={<Link href={`/calendar?start=${data.prevISO}`} aria-label="Previous" />}
+            >
               <ChevronLeft />
             </Button>
-            <Button variant="outline" size="sm" render={<Link href="/calendar" />}>
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/calendar" />}>
               Today
             </Button>
-            <Button variant="outline" size="icon-sm" render={<Link href={`/calendar?start=${data.nextISO}`} />}>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              nativeButton={false}
+              render={<Link href={`/calendar?start=${data.nextISO}`} aria-label="Next" />}
+            >
               <ChevronRight />
             </Button>
           </div>

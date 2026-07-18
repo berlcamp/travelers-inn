@@ -43,7 +43,7 @@ export default async function RoomsPage() {
           description="Create a room type first — rooms belong to a type that carries the pricing."
           action={
             isAdmin ? (
-              <Button render={<Link href="/room-types" />} variant="outline">
+              <Button render={<Link href="/room-types" />} nativeButton={false} variant="outline">
                 Go to Room Types
               </Button>
             ) : null

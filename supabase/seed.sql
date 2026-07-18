@@ -60,3 +60,23 @@ begin
     );
   end if;
 end $$;
+
+-- Demo front-desk state: a partial payment + one checked-in guest.
+do $$
+declare
+  v_b uuid;
+begin
+  if not exists (select 1 from booking.payments) then
+    select id into v_b from booking.bookings where guest_name = 'Maria Santos' limit 1;
+    if v_b is not null then
+      insert into booking.payments (booking_id, amount, method) values (v_b, 1000, 'cash');
+    end if;
+
+    select id into v_b from booking.bookings where guest_name = 'Jose Rizal' limit 1;
+    if v_b is not null then
+      update booking.bookings set status = 'checked_in' where id = v_b;
+      update booking.rooms set status = 'occupied'
+        where id = (select room_id from booking.bookings where id = v_b);
+    end if;
+  end if;
+end $$;
