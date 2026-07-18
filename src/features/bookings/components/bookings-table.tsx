@@ -1,21 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Ban } from "lucide-react";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/shared/data-table";
-import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
-import { cancelBooking } from "@/features/bookings/actions";
+import { BookingManageDialog } from "./booking-manage-dialog";
 import { peso } from "@/features/bookings/pricing";
 import { STAY_TYPE_LABELS, type BookingStatus } from "@/features/bookings/schemas";
 import type { BookingRow } from "@/features/bookings/repository";
@@ -32,51 +21,17 @@ function fmt(iso: string) {
   return Number.isNaN(d.getTime()) ? "—" : dt.format(d);
 }
 
-function CancelAction({ booking }: { booking: BookingRow }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const cancellable = booking.status === "confirmed" || booking.status === "checked_in";
-
-  function onConfirm() {
-    startTransition(async () => {
-      const result = await cancelBooking(booking.id);
-      if (result.ok) {
-        toast.success("Booking cancelled.");
-        router.refresh();
-      } else {
-        toast.error(result.error);
-      }
-    });
-  }
-
+function ManageAction({ booking }: { booking: BookingRow }) {
   return (
     <div className="flex justify-end">
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon-sm" aria-label="Actions">
-              <MoreHorizontal />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <ConfirmDialog
-            title="Cancel this booking?"
-            description={`This frees room ${booking.room?.label ?? ""} for ${booking.guest_name}. This cannot be undone.`}
-            confirmLabel="Cancel booking"
-            onConfirm={onConfirm}
-            trigger={
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                disabled={!cancellable || pending}
-                variant="destructive"
-              >
-                <Ban className="size-4" /> Cancel booking
-              </DropdownMenuItem>
-            }
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <BookingManageDialog
+        bookingId={booking.id}
+        trigger={
+          <Button variant="outline" size="sm">
+            Manage
+          </Button>
+        }
+      />
     </div>
   );
 }
@@ -147,7 +102,7 @@ const columns: ColumnDef<BookingRow>[] = [
   {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => <CancelAction booking={row.original} />,
+    cell: ({ row }) => <ManageAction booking={row.original} />,
   },
 ];
 
