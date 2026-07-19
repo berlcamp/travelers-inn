@@ -19,11 +19,36 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "Bañares Traveler's Inn",
     template: "%s · Bañares Traveler's Inn",
   },
   description: "Booking & Reservation Management System for Bañares Traveler's Inn",
+  // Social share card (Facebook / Open Graph). Uses the public, guest-facing
+  // copy rather than the internal system description.
+  openGraph: {
+    type: "website",
+    siteName: "Bañares Traveler's Inn",
+    title: "Bañares Traveler's Inn",
+    description:
+      "Nightly stays and short day-use rooms in the heart of town. Check availability, book in seconds",
+    images: [
+      {
+        url: "/og-couple.jpg",
+        width: 2048,
+        height: 1536,
+        alt: "Bañares Traveler's Inn",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Bañares Traveler's Inn",
+    description:
+      "Nightly stays and short day-use rooms in the heart of town. Check availability, book in seconds",
+    images: ["/og-couple.jpg"],
+  },
 };
 
 export default function RootLayout({
