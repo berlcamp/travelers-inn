@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ImageOff, MoreHorizontal, Pencil, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ const peso = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP"
 function RowActions({ roomType }: { roomType: RoomTypeWithTiers }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [editOpen, setEditOpen] = useState(false);
 
   function toggle() {
     startTransition(async () => {
@@ -47,14 +48,9 @@ function RowActions({ roomType }: { roomType: RoomTypeWithTiers }) {
           }
         />
         <DropdownMenuContent align="end">
-          <RoomTypeFormDialog
-            roomType={roomType}
-            trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <Pencil className="size-4" /> Edit
-              </DropdownMenuItem>
-            }
-          />
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <Pencil className="size-4" /> Edit
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={toggle} disabled={pending}>
             {roomType.is_active ? (
               <>
@@ -68,6 +64,9 @@ function RowActions({ roomType }: { roomType: RoomTypeWithTiers }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {/* Rendered as a sibling of the menu (not inside a menu item) so it
+          doesn't get torn down when the dropdown dismisses. */}
+      <RoomTypeFormDialog roomType={roomType} open={editOpen} onOpenChange={setEditOpen} />
     </div>
   );
 }

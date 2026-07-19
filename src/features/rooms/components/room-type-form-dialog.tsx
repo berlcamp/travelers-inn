@@ -61,12 +61,22 @@ function defaults(roomType?: RoomTypeWithTiers): RoomTypeFormValues {
 export function RoomTypeFormDialog({
   trigger,
   roomType,
+  open: openProp,
+  onOpenChange,
 }: {
-  trigger: React.ReactElement<Record<string, unknown>>;
+  // Uncontrolled (own trigger) for the "Add" button; controlled (open/
+  // onOpenChange, no trigger) when opened from a dropdown menu item — nesting a
+  // DialogTrigger inside a Base UI Menu.Item makes the dialog flash shut as the
+  // menu dismisses, so those callers drive `open` via state instead.
+  trigger?: React.ReactElement<Record<string, unknown>>;
   roomType?: RoomTypeWithTiers;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const [pending, startTransition] = useTransition();
 
   const form = useForm<RoomTypeFormValues, unknown, RoomTypeInput>({
@@ -91,7 +101,7 @@ export function RoomTypeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+      {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{roomType ? "Edit room type" : "Add room type"}</DialogTitle>
