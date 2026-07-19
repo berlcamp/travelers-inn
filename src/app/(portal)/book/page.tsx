@@ -37,10 +37,12 @@ export default async function BookPage({
   );
   const option = options.find((o) => o.id === roomType.id);
 
-  if (!option || option.available <= 0 || option.tiers.length === 0) {
-    return (
-      <Unavailable message="Sorry — that room just booked out for your dates. Try another room or time." />
-    );
+  // Only bail out for a genuinely unbookable room (bad link / no rates). Do NOT
+  // gate on availability here: a successful booking triggers a server-action
+  // refresh of this route, and gating would replace the confirmation screen
+  // with "sold out". Availability is surfaced inside the form instead.
+  if (!option || option.tiers.length === 0) {
+    return <Unavailable message="That room could not be found. Let's find you another." />;
   }
 
   const stayLabel = `${fmtDate(sp.checkIn)} → ${fmtDate(sp.checkOut)}`;
@@ -83,9 +85,15 @@ export default async function BookPage({
                 <div className="text-muted-foreground text-xs">from</div>
                 <div className="text-2xl font-semibold">{peso.format(option.fromPrice)}</div>
               </div>
-              <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full px-2.5 py-1 text-xs font-medium">
-                {option.available} available
-              </span>
+              {option.available > 0 ? (
+                <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full px-2.5 py-1 text-xs font-medium">
+                  {option.available} available
+                </span>
+              ) : (
+                <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-xs font-medium">
+                  Fully booked
+                </span>
+              )}
             </div>
           </div>
         </div>

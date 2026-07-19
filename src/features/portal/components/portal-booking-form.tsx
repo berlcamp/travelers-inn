@@ -137,6 +137,24 @@ export function PortalBookingForm({
     );
   }
 
+  // Sold out only matters before a booking is made — the confirmed branch above
+  // always wins, so a successful booking of the last room still shows the code.
+  if (option.available <= 0) {
+    return (
+      <div className="border-border bg-card flex flex-col items-center gap-4 rounded-2xl border p-8 text-center">
+        <h3 className="font-[family-name:var(--font-fraunces)] text-xl font-semibold">
+          Just booked out
+        </h3>
+        <p className="text-muted-foreground text-sm">
+          Sorry — {roomTypeName} has no rooms free for these dates. Try another room or time.
+        </p>
+        <Button nativeButton={false} render={<Link href="/" />} variant="outline">
+          Search rooms
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
       {/* Rate tier */}
