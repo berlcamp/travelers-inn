@@ -18,10 +18,11 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
-// Public site URL. Falls back to the live domain so social crawlers (which
-// can't reach localhost) always resolve og:image / og:url to a fetchable URL;
-// override via NEXT_PUBLIC_APP_URL per environment.
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://bti.kerisoftware.com";
+// Canonical public URL used ONLY for share-card metadata (og:url / og:image).
+// Deliberately hardcoded rather than read from NEXT_PUBLIC_APP_URL: that env
+// var is pointed at the Supabase project in production, which would make social
+// crawlers fetch og-couple.jpg from a host that 404s (no thumbnail on Facebook).
+const siteUrl = "https://bti.kerisoftware.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
