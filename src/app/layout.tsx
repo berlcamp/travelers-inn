@@ -18,8 +18,13 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
+// Public site URL. Falls back to the live domain so social crawlers (which
+// can't reach localhost) always resolve og:image / og:url to a fetchable URL;
+// override via NEXT_PUBLIC_APP_URL per environment.
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://bti.kerisoftware.com";
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Bañares Traveler's Inn",
     template: "%s · Bañares Traveler's Inn",
@@ -29,6 +34,7 @@ export const metadata: Metadata = {
   // copy rather than the internal system description.
   openGraph: {
     type: "website",
+    url: siteUrl,
     siteName: "Bañares Traveler's Inn",
     title: "Bañares Traveler's Inn",
     description:
