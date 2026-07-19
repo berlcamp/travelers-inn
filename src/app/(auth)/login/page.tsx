@@ -22,9 +22,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; detail?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, detail } = await searchParams;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.auth) : null;
 
   return (
@@ -45,12 +45,17 @@ export default async function LoginPage({
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pb-2">
           {errorMessage ? (
-            <p
+            <div
               role="alert"
-              className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-2.5 text-center text-xs"
+              className="border-destructive/30 bg-destructive/10 text-destructive space-y-1 rounded-lg border p-2.5 text-center text-xs"
             >
-              {errorMessage}
-            </p>
+              <p>{errorMessage}</p>
+              {detail ? (
+                <p className="text-destructive/80 break-words font-mono text-[0.7rem] leading-snug">
+                  {detail}
+                </p>
+              ) : null}
+            </div>
           ) : null}
           <GoogleSignInButton />
           <div className="flex items-center gap-3 py-1">

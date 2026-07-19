@@ -11,37 +11,56 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+  // Supabase appends error/error_description to the redirect when the provider
+  // handshake itself fails (e.g. provider disabled, redirect URL not
+  // allowlisted). Surface it instead of collapsing into a generic failure.
+  const providerError = searchParams.get("error_description") ?? searchParams.get("error");
 
-    if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const failAuth = (detail: string) => {
+    console.error(`[auth/callback] sign-in failed: ${detail}`, { origin });
+    const url = new URL(`${origin}/login`);
+    url.searchParams.set("error", "auth");
+    url.searchParams.set("detail", detail.slice(0, 300));
+    return NextResponse.redirect(url);
+  };
 
-      const { data: profile } = user
-        ? await supabase.from("profiles").select("is_active").eq("id", user.id).maybeSingle()
-        : { data: null };
+  if (providerError) {
+    return failAuth(providerError);
+  }
 
-      if (profile) {
-        if (!profile.is_active) {
-          await supabase.auth.signOut({ scope: "local" });
-          return NextResponse.redirect(`${origin}/login?error=deactivated`);
-        }
-      } else {
-        const { data: claimed } = await supabase.rpc("fn_claim_invitation");
-        if (!claimed) {
-          await supabase.auth.signOut({ scope: "local" });
-          return NextResponse.redirect(`${origin}/login?error=uninvited`);
-        }
-      }
+  if (!code) {
+    return failAuth("No authorization code returned from the identity provider.");
+  }
 
-      // Only allow same-origin relative redirects.
-      const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-      return NextResponse.redirect(`${origin}${safeNext}`);
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return failAuth(`Code exchange failed: ${error.message}`);
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("is_active").eq("id", user.id).maybeSingle()
+    : { data: null };
+
+  if (profile) {
+    if (!profile.is_active) {
+      await supabase.auth.signOut({ scope: "local" });
+      return NextResponse.redirect(`${origin}/login?error=deactivated`);
+    }
+  } else {
+    const { data: claimed } = await supabase.rpc("fn_claim_invitation");
+    if (!claimed) {
+      await supabase.auth.signOut({ scope: "local" });
+      return NextResponse.redirect(`${origin}/login?error=uninvited`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`);
+  // Only allow same-origin relative redirects.
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  return NextResponse.redirect(`${origin}${safeNext}`);
 }
