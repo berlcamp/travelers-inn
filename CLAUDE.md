@@ -97,3 +97,18 @@ Plans: `docs/superpowers/plans/`
   `node --experimental-strip-types` (34 total).
 - **ALL SIX MILESTONES COMPLETE.** Whole product live: staff auth, rooms/rates,
   booking engine + walk-ins, front-desk ops, public portal, dashboard.
+- **Tiered pricing + occupancy — DONE** (migration `20260719000100`): the old
+  linear `nightly_rate`/`hourly_rate` + `stay_type` model is GONE. Pricing now
+  lives in **`booking.rate_tiers`** (admin-configurable per room type): each tier
+  is `kind='block'` (fixed `duration_hours`, flat price — check-out derived) or
+  `kind='overnight'` (price × nights). Occupancy is on `room_types`
+  (`base_occupancy`, `max_occupancy`, `excess_person_rate`); excess heads over
+  base are charged **per night** for overnight, once for blocks. Bookings carry
+  `rate_tier_id` + `guest_count`. `fn_create_booking` signature is now
+  `(name, phone, email, room_type_id, rate_tier_id, guest_count, check_in,
+  check_out, source, notes)` and stays authoritative on price. TS mirror is
+  `features/bookings/pricing.ts` `quote(tier, occ, guestCount, checkIn, checkOut?)`.
+  Room-type form has a nested tier editor (soft-deactivates removed tiers, never
+  hard-deletes — bookings FK-reference tiers). Portal & walk-in both pick
+  tier + guests with live pricing. Tests: engine (10), rooms (9), front-desk (7),
+  portal (2), reports (7), pricing unit (5) = 40 total.

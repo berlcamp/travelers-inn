@@ -23,8 +23,8 @@ import {
   type BookingInput,
 } from "@/features/bookings/schemas";
 import { createBooking, checkAvailability } from "@/features/bookings/actions";
-import { quote, peso } from "@/features/bookings/pricing";
-import type { RoomType } from "@/features/rooms/repository";
+import { quote, peso, type RateTier } from "@/features/bookings/pricing";
+import type { RoomTypeWithTiers } from "@/features/rooms/repository";
 
 // "YYYY-MM-DDTHH:mm" in local wall-clock, for datetime-local inputs.
 function localDateTime(d: Date) {
@@ -34,7 +34,7 @@ function localDateTime(d: Date) {
 
 function defaults(): BookingFormValues {
   const checkIn = new Date();
-  checkIn.setHours(14, 0, 0, 0);
+  checkIn.setHours(13, 0, 0, 0);
   const checkOut = new Date(checkIn);
   checkOut.setDate(checkOut.getDate() + 1);
   checkOut.setHours(12, 0, 0, 0);
@@ -43,19 +43,28 @@ function defaults(): BookingFormValues {
     guest_phone: "",
     guest_email: "",
     room_type_id: "",
-    stay_type: "nightly",
+    rate_tier_id: "",
+    guest_count: 1,
     check_in: localDateTime(checkIn),
     check_out: localDateTime(checkOut),
     notes: "",
   };
 }
 
+const dtFmt = new Intl.DateTimeFormat("en-PH", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 export function WalkInDialog({
   trigger,
   roomTypes,
 }: {
   trigger: React.ReactElement<Record<string, unknown>>;
-  roomTypes: RoomType[];
+  roomTypes: RoomTypeWithTiers[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -69,41 +78,69 @@ export function WalkInDialog({
   });
 
   const typeOptions = roomTypes.map((t) => ({ value: t.id, label: t.name }));
-  const stayOptions = [
-    { value: "nightly", label: "Nightly" },
-    { value: "hourly", label: "Hourly" },
-  ];
 
-  const [roomTypeId, stayType, checkIn, checkOut] = useWatch({
+  const [roomTypeId, rateTierId, guestCount, checkIn, checkOut] = useWatch({
     control: form.control,
-    name: ["room_type_id", "stay_type", "check_in", "check_out"],
+    name: ["room_type_id", "rate_tier_id", "guest_count", "check_in", "check_out"],
   });
 
   const selectedType = roomTypes.find((t) => t.id === roomTypeId) ?? null;
+  const tierOptions = (selectedType?.rate_tiers ?? []).map((t) => ({
+    value: t.id,
+    label: `${t.label} · ${peso.format(Number(t.price))}`,
+  }));
+  const selectedTier = selectedType?.rate_tiers.find((t) => t.id === rateTierId) ?? null;
+  const isBlock = selectedTier?.kind === "block";
+
+  // When the room type changes, the current tier no longer belongs to it —
+  // default its first tier and reset the guest count to the base occupancy.
+  useEffect(() => {
+    if (!selectedType) return;
+    const tierBelongs = selectedType.rate_tiers.some((t) => t.id === rateTierId);
+    if (!tierBelongs) {
+      form.setValue("rate_tier_id", selectedType.rate_tiers[0]?.id ?? "");
+      form.setValue("guest_count", selectedType.base_occupancy);
+    }
+  }, [selectedType, rateTierId, form]);
 
   const priceQuote = useMemo(() => {
-    if (!selectedType || !checkIn || !checkOut) return null;
+    if (!selectedType || !selectedTier || !checkIn) return null;
+    const tier: RateTier = {
+      id: selectedTier.id,
+      label: selectedTier.label,
+      kind: selectedTier.kind,
+      duration_hours: selectedTier.duration_hours,
+      price: Number(selectedTier.price),
+    };
     return quote(
-      stayType as "nightly" | "hourly",
+      tier,
+      {
+        base_occupancy: selectedType.base_occupancy,
+        max_occupancy: selectedType.max_occupancy,
+        excess_person_rate: Number(selectedType.excess_person_rate),
+      },
+      Number(guestCount) || 0,
       new Date(checkIn),
-      new Date(checkOut),
-      Number(selectedType.nightly_rate),
-      selectedType.hourly_rate != null ? Number(selectedType.hourly_rate) : null
+      isBlock ? null : checkOut ? new Date(checkOut) : null
     );
-  }, [selectedType, stayType, checkIn, checkOut]);
+  }, [selectedType, selectedTier, guestCount, checkIn, checkOut, isBlock]);
 
-  // Debounced availability check whenever type/dates change. All state updates
-  // happen inside the deferred timeout (never synchronously in the effect body)
-  // to avoid cascading re-renders.
+  // The effective check-out used for availability + submission (derived for
+  // blocks). `null` when we can't compute one yet.
+  const effectiveCheckOut =
+    priceQuote && "checkOut" in priceQuote ? priceQuote.checkOut : null;
+
+  // Debounced availability check whenever type/tier/dates/guests change.
   useEffect(() => {
     let cancelled = false;
+    const outIso = effectiveCheckOut ? localDateTime(effectiveCheckOut) : null;
     const handle = setTimeout(async () => {
-      if (!roomTypeId || !checkIn || !checkOut) {
+      if (!roomTypeId || !checkIn || !outIso) {
         if (!cancelled) setAvailable(null);
         return;
       }
       if (!cancelled) setChecking(true);
-      const result = await checkAvailability(roomTypeId, checkIn, checkOut);
+      const result = await checkAvailability(roomTypeId, checkIn, outIso);
       if (!cancelled) {
         setAvailable(result.ok ? result.data.count : 0);
         setChecking(false);
@@ -113,14 +150,16 @@ export function WalkInDialog({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [roomTypeId, checkIn, checkOut]);
+  }, [roomTypeId, checkIn, effectiveCheckOut]);
 
   const priceError = priceQuote && "error" in priceQuote ? priceQuote.error : null;
   const canSubmit = !pending && available != null && available > 0 && !priceError;
 
   function onSubmit(values: BookingInput) {
     startTransition(async () => {
-      const result = await createBooking(values);
+      // For blocks the server derives check-out; clear the stale value.
+      const payload = isBlock ? { ...values, check_out: "" } : values;
+      const result = await createBooking(payload);
       if (result.ok) {
         toast.success(`Booked — ${result.data.reference_code}`);
         setOpen(false);
@@ -136,7 +175,7 @@ export function WalkInDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New walk-in booking</DialogTitle>
         </DialogHeader>
@@ -154,22 +193,55 @@ export function WalkInDialog({
               options={typeOptions}
               placeholder="Choose a type"
             />
-            <FormSelect control={form.control} name="stay_type" label="Stay type" options={stayOptions} />
+            <FormSelect
+              control={form.control}
+              name="rate_tier_id"
+              label="Rate"
+              options={tierOptions}
+              placeholder={selectedType ? "Choose a rate" : "Pick a type first"}
+              disabled={!selectedType}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormInput control={form.control} name="check_in" label="Check-in" type="datetime-local" />
-            <FormInput control={form.control} name="check_out" label="Check-out" type="datetime-local" />
+            <FormInput
+              control={form.control}
+              name="guest_count"
+              label={
+                selectedType
+                  ? `Guests (max ${selectedType.max_occupancy})`
+                  : "Guests"
+              }
+              type="number"
+              min={1}
+            />
+            <FormInput
+              control={form.control}
+              name="check_in"
+              label="Check-in"
+              type="datetime-local"
+            />
           </div>
+          {!isBlock ? (
+            <FormInput
+              control={form.control}
+              name="check_out"
+              label="Check-out"
+              type="datetime-local"
+            />
+          ) : null}
           <FormTextarea control={form.control} name="notes" label="Notes" rows={2} />
 
           <SummaryPanel
             checking={checking}
             available={available}
+            derivedCheckout={
+              isBlock && effectiveCheckOut ? dtFmt.format(effectiveCheckOut) : null
+            }
             priceLine={
               priceError
                 ? priceError
                 : priceQuote && "total" in priceQuote
-                  ? `${priceQuote.units} ${priceQuote.unitLabel} · ${peso.format(priceQuote.total)}`
+                  ? summarize(priceQuote)
                   : null
             }
             priceError={Boolean(priceError)}
@@ -187,14 +259,22 @@ export function WalkInDialog({
   );
 }
 
+function summarize(q: Extract<ReturnType<typeof quote>, { total: number }>): string {
+  const parts = [q.unitLabel];
+  if (q.excessTotal > 0) parts.push(`+${q.excessHeads} guest${q.excessHeads === 1 ? "" : "s"}`);
+  return `${parts.join(" · ")} — ${peso.format(q.total)}`;
+}
+
 function SummaryPanel({
   checking,
   available,
+  derivedCheckout,
   priceLine,
   priceError,
 }: {
   checking: boolean;
   available: number | null;
+  derivedCheckout: string | null;
   priceLine: string | null;
   priceError: boolean;
 }) {
@@ -205,7 +285,7 @@ function SummaryPanel({
         {checking ? (
           <span className="text-muted-foreground">Checking availability…</span>
         ) : available == null ? (
-          <span className="text-muted-foreground">Pick a room type and dates.</span>
+          <span className="text-muted-foreground">Pick a room type, rate and dates.</span>
         ) : available > 0 ? (
           <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="size-4" /> {available} room{available === 1 ? "" : "s"} free
@@ -216,6 +296,9 @@ function SummaryPanel({
           </span>
         )}
       </div>
+      {derivedCheckout ? (
+        <div className="text-muted-foreground text-xs">Checks out {derivedCheckout}</div>
+      ) : null}
       {priceLine ? (
         <div className={priceError ? "text-destructive" : "font-medium"}>{priceLine}</div>
       ) : null}

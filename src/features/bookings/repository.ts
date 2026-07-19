@@ -6,6 +6,7 @@ type BookingBase = Database["booking"]["Tables"]["bookings"]["Row"];
 export type BookingRow = BookingBase & {
   room: { label: string } | null;
   room_type: { name: string } | null;
+  rate_tier: { label: string } | null;
   checkIn: string;
   checkOut: string;
 };
@@ -18,7 +19,7 @@ export function parsePeriod(raw: string | null): { checkIn: string; checkOut: st
   return { checkIn: m?.[1] ?? "", checkOut: m?.[2] ?? "" };
 }
 
-const SELECT = "*, room:rooms(label), room_type:room_types(name)";
+const SELECT = "*, room:rooms(label), room_type:room_types(name), rate_tier:rate_tiers(label)";
 
 export async function listBookings(): Promise<BookingRow[]> {
   const supabase = await createClient();
@@ -28,7 +29,7 @@ export async function listBookings(): Promise<BookingRow[]> {
     .order("period", { ascending: false });
   return (data ?? []).map((b) => {
     const { checkIn, checkOut } = parsePeriod((b as { period: string }).period);
-    return { ...(b as BookingBase & { room: { label: string } | null; room_type: { name: string } | null }), checkIn, checkOut };
+    return { ...(b as BookingBase & { room: { label: string } | null; room_type: { name: string } | null; rate_tier: { label: string } | null }), checkIn, checkOut };
   });
 }
 
@@ -38,7 +39,7 @@ export async function getBooking(id: string): Promise<BookingRow | null> {
   if (!data) return null;
   const { checkIn, checkOut } = parsePeriod((data as { period: string }).period);
   return {
-    ...(data as BookingBase & { room: { label: string } | null; room_type: { name: string } | null }),
+    ...(data as BookingBase & { room: { label: string } | null; room_type: { name: string } | null; rate_tier: { label: string } | null }),
     checkIn,
     checkOut,
   };

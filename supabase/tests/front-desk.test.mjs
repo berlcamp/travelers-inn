@@ -41,20 +41,26 @@ async function main() {
   // A type with two rooms, so reassignment has somewhere to go.
   const { data: dbl } = await b
     .from("room_types")
-    .insert({ name: "Double", capacity: 2, nightly_rate: 1000, hourly_rate: 200 })
+    .insert({ name: "Double", base_occupancy: 2, max_occupancy: 2, excess_person_rate: 0 })
     .select("id")
     .single();
   await b.from("rooms").insert([
     { room_type_id: dbl.id, label: "D1" },
     { room_type_id: dbl.id, label: "D2" },
   ]);
+  const { data: dblTier } = await b
+    .from("rate_tiers")
+    .insert({ room_type_id: dbl.id, label: "Overnight", kind: "overnight", price: 1000 })
+    .select("id")
+    .single();
 
   const { data: booking } = await admin.rpc("fn_create_booking", {
     p_guest_name: "Pay Guest",
     p_guest_phone: "",
     p_guest_email: "",
     p_room_type_id: dbl.id,
-    p_stay_type: "nightly",
+    p_rate_tier_id: dblTier.id,
+    p_guest_count: 2,
     p_check_in: W1[0],
     p_check_out: W1[1],
     p_source: "walk_in",
@@ -127,7 +133,8 @@ async function main() {
       p_guest_phone: "",
       p_guest_email: "",
       p_room_type_id: dbl.id,
-      p_stay_type: "nightly",
+      p_rate_tier_id: dblTier.id,
+      p_guest_count: 2,
       p_check_in: W1[0],
       p_check_out: W1[1],
       p_source: "walk_in",

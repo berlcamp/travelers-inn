@@ -10,20 +10,14 @@ export function RoomTypeCard({
   index,
   checkIn,
   checkOut,
-  stay,
 }: {
   option: AvailabilityOption;
   index?: number;
   checkIn: string;
   checkOut: string;
-  stay: "nightly" | "hourly";
 }) {
   const soldOut = option.available <= 0;
-  const bookHref = `/book?type=${option.id}&checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&stay=${stay}`;
-  const rateLabel =
-    stay === "hourly"
-      ? `${peso.format(option.hourlyRate ?? 0)} / hour`
-      : `${peso.format(option.nightlyRate)} / night`;
+  const bookHref = `/book?type=${option.id}&checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}`;
 
   return (
     <article className="group border-border flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-black/[0.02] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
@@ -35,7 +29,7 @@ export function RoomTypeCard({
               {option.name}
             </h3>
             <p className="text-muted-foreground mt-0.5 inline-flex items-center gap-1 text-xs">
-              <Users className="size-3.5" /> Sleeps {option.capacity}
+              <Users className="size-3.5" /> Sleeps up to {option.max_occupancy}
             </p>
           </div>
           {soldOut ? (
@@ -55,13 +49,10 @@ export function RoomTypeCard({
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-2">
           <div>
-            <div className="text-muted-foreground text-xs">{rateLabel}</div>
+            <div className="text-muted-foreground text-xs">from</div>
             <div className="text-lg font-semibold">
-              {peso.format(option.total)}
-              <span className="text-muted-foreground text-xs font-normal">
-                {" "}
-                / {option.units} {option.unitLabel}
-              </span>
+              {peso.format(option.fromPrice)}
+              <span className="text-muted-foreground text-xs font-normal"> / stay</span>
             </div>
           </div>
           {soldOut ? (

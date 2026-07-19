@@ -1,59 +1,88 @@
 -- Travelers Inn · local seed data.
 -- The first Google sign-in bootstraps the admin/owner via
--- booking.fn_claim_invitation(). Below we seed demo room types + rooms so the
--- staff pages have content locally. Guarded with NOT EXISTS so re-runs are safe.
+-- booking.fn_claim_invitation(). Below we seed the real room types, their rate
+-- tiers, rooms, and a few demo bookings so the staff pages have content locally.
+-- Guarded with NOT EXISTS so re-runs are safe.
 
-insert into booking.room_types (name, description, capacity, nightly_rate, hourly_rate)
-select t.name, t.description, t.capacity, t.nightly_rate, t.hourly_rate
+-- ---- Room types (occupancy) --------------------------------------------------
+insert into booking.room_types (name, description, base_occupancy, max_occupancy, excess_person_rate)
+select t.name, t.description, t.base_occupancy, t.max_occupancy, t.excess_person_rate
 from (
   values
-    ('Standard Single', 'Cozy room for solo travelers', 1, 900.00, 150.00),
-    ('Standard Double', 'Comfortable room with a queen bed', 2, 1400.00, 220.00),
-    ('Deluxe Twin', 'Two single beds, ideal for friends', 2, 1700.00, 260.00),
-    ('Family Suite', 'Spacious suite for the whole family', 4, 2600.00, null)
-) as t(name, description, capacity, nightly_rate, hourly_rate)
+    ('Couple Room', 'Snug room for two — day-use blocks or overnight', 2, 2, 0.00),
+    ('Travellers Room', 'Good for 4, sleeps up to 6', 4, 6, 350.00),
+    ('Family Room', 'Good for 6, sleeps up to 15', 6, 15, 350.00)
+) as t(name, description, base_occupancy, max_occupancy, excess_person_rate)
 where not exists (select 1 from booking.room_types);
 
+-- ---- Rate tiers --------------------------------------------------------------
+insert into booking.rate_tiers (room_type_id, label, kind, duration_hours, price, sort_order)
+select rt.id, t.label, t.kind::booking.tier_kind, t.duration_hours, t.price, t.sort_order
+from (
+  values
+    ('Couple Room',    '3 hrs',     'block',     3,    500.00, 0),
+    ('Couple Room',    '12 hrs',    'block',     12,   850.00, 1),
+    ('Couple Room',    'Overnight', 'overnight', null, 1250.00, 2),
+    ('Travellers Room','Overnight', 'overnight', null, 1500.00, 0),
+    ('Family Room',    'Overnight', 'overnight', null, 2350.00, 0)
+) as t(type_name, label, kind, duration_hours, price, sort_order)
+join booking.room_types rt on lower(rt.name) = lower(t.type_name)
+where not exists (select 1 from booking.rate_tiers);
+
+-- ---- Rooms -------------------------------------------------------------------
 insert into booking.rooms (room_type_id, label, status)
 select rt.id, r.label, r.status::booking.room_status
 from (
   values
-    ('Standard Single', '101', 'vacant'),
-    ('Standard Single', '102', 'cleaning'),
-    ('Standard Double', '201', 'vacant'),
-    ('Standard Double', '202', 'occupied'),
-    ('Standard Double', '203', 'vacant'),
-    ('Deluxe Twin', '301', 'vacant'),
-    ('Deluxe Twin', '302', 'out_of_service'),
-    ('Family Suite', '401', 'vacant')
+    ('Couple Room', '101', 'vacant'),
+    ('Couple Room', '102', 'cleaning'),
+    ('Couple Room', '103', 'vacant'),
+    ('Travellers Room', '201', 'vacant'),
+    ('Travellers Room', '202', 'occupied'),
+    ('Travellers Room', '203', 'vacant'),
+    ('Family Room', '301', 'vacant'),
+    ('Family Room', '302', 'out_of_service')
 ) as r(type_name, label, status)
 join booking.room_types rt on lower(rt.name) = lower(r.type_name)
 where not exists (select 1 from booking.rooms);
 
--- Demo bookings via the real engine (auto-assigns a room, prices from rates).
+-- Convenience: the id of a room type's tier by kind/label.
+-- (Inlined below since plpgsql-free seeds can't define helpers.)
+
+-- Demo bookings via the real engine (auto-assigns a room, prices from tiers).
 do $$
+declare
+  v_couple uuid := (select id from booking.room_types where lower(name) = 'couple room');
+  v_travellers uuid := (select id from booking.room_types where lower(name) = 'travellers room');
+  v_family uuid := (select id from booking.room_types where lower(name) = 'family room');
 begin
   if not exists (select 1 from booking.bookings) then
+    -- Couple, overnight, 2 nights.
     perform booking.fn_create_booking(
       'Maria Santos', '09171234567', 'maria@example.com',
-      (select id from booking.room_types where lower(name) = 'standard double'),
-      'nightly',
+      v_couple,
+      (select id from booking.rate_tiers where room_type_id = v_couple and kind = 'overnight'),
+      2,
       date_trunc('day', now()) + interval '14 hours',
       date_trunc('day', now()) + interval '2 days 12 hours',
       'staff', null
     );
+    -- Couple, 3-hour day-use block.
     perform booking.fn_create_booking(
       'Jose Rizal', '09980000000', null,
-      (select id from booking.room_types where lower(name) = 'standard single'),
-      'hourly',
+      v_couple,
+      (select id from booking.rate_tiers where room_type_id = v_couple and label = '3 hrs'),
+      2,
       date_trunc('day', now()) + interval '10 hours',
       date_trunc('day', now()) + interval '13 hours',
       'walk_in', null
     );
+    -- Family, overnight with excess guests (8 guests, base 6 → 2 excess/night).
     perform booking.fn_create_booking(
       'Andres Bonifacio', null, null,
-      (select id from booking.room_types where lower(name) = 'deluxe twin'),
-      'nightly',
+      v_family,
+      (select id from booking.rate_tiers where room_type_id = v_family and kind = 'overnight'),
+      8,
       date_trunc('day', now()) + interval '1 day 14 hours',
       date_trunc('day', now()) + interval '3 days 12 hours',
       'portal', null
@@ -65,6 +94,7 @@ end $$;
 do $$
 declare
   v_b uuid;
+  v_couple uuid := (select id from booking.room_types where lower(name) = 'couple room');
 begin
   if not exists (select 1 from booking.payments) then
     select id into v_b from booking.bookings where guest_name = 'Maria Santos' limit 1;
@@ -83,8 +113,9 @@ begin
     -- revenue / occupancy trends some history to show.
     v_b := (booking.fn_create_booking(
       'Rosa Delgado', '09990001111', null,
-      (select id from booking.room_types where lower(name) = 'standard single'),
-      'nightly',
+      v_couple,
+      (select id from booking.rate_tiers where room_type_id = v_couple and kind = 'overnight'),
+      2,
       date_trunc('day', now()) - interval '3 days' + interval '14 hours',
       date_trunc('day', now()) - interval '1 day' + interval '12 hours',
       'walk_in', null

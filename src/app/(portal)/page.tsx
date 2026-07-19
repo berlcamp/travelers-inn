@@ -3,7 +3,6 @@ import { Clock, MapPin, ShieldCheck } from "lucide-react";
 import { SearchBar } from "@/features/portal/components/search-bar";
 import { RoomTypeCard } from "@/features/portal/components/room-type-card";
 import { listPortalAvailability } from "@/features/portal/repository";
-import type { StayType } from "@/features/bookings/pricing";
 
 export const metadata: Metadata = {
   title: "Book your stay",
@@ -30,18 +29,13 @@ function defaultWindow() {
 export default async function PortalHome({
   searchParams,
 }: {
-  searchParams: Promise<{ checkIn?: string; checkOut?: string; stay?: string }>;
+  searchParams: Promise<{ checkIn?: string; checkOut?: string }>;
 }) {
   const sp = await searchParams;
   const searched = Boolean(sp.checkIn && sp.checkOut);
-  const stay: StayType = sp.stay === "hourly" ? "hourly" : "nightly";
 
   const win = searched ? { checkIn: sp.checkIn!, checkOut: sp.checkOut! } : defaultWindow();
-  const options = await listPortalAvailability(
-    localToISO(win.checkIn),
-    localToISO(win.checkOut),
-    stay
-  );
+  const options = await listPortalAvailability(localToISO(win.checkIn), localToISO(win.checkOut));
 
   return (
     <div>
@@ -76,7 +70,7 @@ export default async function PortalHome({
           </p>
 
           <div className="mt-9 max-w-3xl">
-            <SearchBar defaults={{ checkIn: sp.checkIn, checkOut: sp.checkOut, stay }} />
+            <SearchBar defaults={{ checkIn: sp.checkIn, checkOut: sp.checkOut }} />
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
@@ -127,7 +121,6 @@ export default async function PortalHome({
                 index={i}
                 checkIn={win.checkIn}
                 checkOut={win.checkOut}
-                stay={stay}
               />
             ))}
           </div>

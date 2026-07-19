@@ -53,36 +53,61 @@ async function main() {
 
   let typeId;
 
-  await test("admin creates a room type with nightly + hourly rate", async () => {
+  await test("admin creates a room type with occupancy + a rate tier", async () => {
     const { data, error } = await admin
       .from("room_types")
-      .insert({ name: "Deluxe Double", capacity: 2, nightly_rate: 1800, hourly_rate: 250 })
-      .select("id, nightly_rate, hourly_rate")
+      .insert({
+        name: "Deluxe Double",
+        base_occupancy: 2,
+        max_occupancy: 4,
+        excess_person_rate: 350,
+      })
+      .select("id, base_occupancy, max_occupancy, excess_person_rate")
       .single();
     assert.equal(error, null, error?.message);
-    assert.equal(Number(data.nightly_rate), 1800);
-    assert.equal(Number(data.hourly_rate), 250);
+    assert.equal(data.base_occupancy, 2);
+    assert.equal(data.max_occupancy, 4);
+    assert.equal(Number(data.excess_person_rate), 350);
     typeId = data.id;
+
+    const { error: tierErr } = await admin
+      .from("rate_tiers")
+      .insert({ room_type_id: typeId, label: "Overnight", kind: "overnight", price: 1800 });
+    assert.equal(tierErr, null, tierErr?.message);
   });
 
   await test("duplicate room type name (case-insensitive) is rejected", async () => {
     const { error } = await admin
       .from("room_types")
-      .insert({ name: "deluxe double", capacity: 2, nightly_rate: 1500 });
+      .insert({ name: "deluxe double", base_occupancy: 2, max_occupancy: 2 });
     assert.ok(error, "expected a unique-violation error");
   });
 
-  await test("negative nightly_rate is rejected by the check constraint", async () => {
+  await test("max_occupancy below base_occupancy is rejected by the check constraint", async () => {
     const { error } = await admin
       .from("room_types")
-      .insert({ name: "Bad Rate", capacity: 2, nightly_rate: -1 });
+      .insert({ name: "Bad Occupancy", base_occupancy: 4, max_occupancy: 2 });
+    assert.ok(error, "expected a check-constraint error");
+  });
+
+  await test("negative tier price is rejected by the check constraint", async () => {
+    const { error } = await admin
+      .from("rate_tiers")
+      .insert({ room_type_id: typeId, label: "Bad", kind: "overnight", price: -1 });
+    assert.ok(error, "expected a check-constraint error");
+  });
+
+  await test("a block tier without a duration is rejected", async () => {
+    const { error } = await admin
+      .from("rate_tiers")
+      .insert({ room_type_id: typeId, label: "No Hours", kind: "block", price: 500 });
     assert.ok(error, "expected a check-constraint error");
   });
 
   await test("front_desk cannot create a room type (RLS denies)", async () => {
     const { data, error } = await desk
       .from("room_types")
-      .insert({ name: "Sneaky Suite", capacity: 4, nightly_rate: 3000 })
+      .insert({ name: "Sneaky Suite", base_occupancy: 4, max_occupancy: 4 })
       .select("id");
     // RLS denies the insert: either an error or zero rows returned.
     assert.ok(error || !data || data.length === 0, "front_desk insert should be blocked");
@@ -112,11 +137,17 @@ async function main() {
     assert.equal(data.status, "cleaning");
   });
 
-  await test("anonymous visitor can read room types (portal inventory)", async () => {
+  await test("anonymous visitor can read room types + tiers (portal inventory)", async () => {
     const anon = createClient(SUPABASE_URL, ANON_KEY, { db: { schema: "booking" } });
-    const { data, error } = await anon.from("room_types").select("id, name, nightly_rate");
+    const { data, error } = await anon
+      .from("room_types")
+      .select("id, name, base_occupancy, rate_tiers(label, price)");
     assert.equal(error, null, error?.message);
     assert.ok(data.length >= 1, "anon should read at least the created type");
+    assert.ok(
+      data.some((t) => (t.rate_tiers ?? []).length >= 1),
+      "anon should read tiers too"
+    );
   });
 
   // Cleanup (bookings first — FK to rooms).

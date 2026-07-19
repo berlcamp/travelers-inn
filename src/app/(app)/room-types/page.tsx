@@ -17,7 +17,7 @@ export default async function RoomTypesPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <PageHeader
         title="Room Types"
-        description="Define the categories of rooms and their nightly and hourly rates."
+        description="Define the categories of rooms, their occupancy, and rate tiers."
         actions={
           <RoomTypeFormDialog
             trigger={

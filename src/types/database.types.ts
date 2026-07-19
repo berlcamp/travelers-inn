@@ -43,6 +43,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          guest_count: number
           guest_email: string | null
           guest_name: string
           guest_phone: string | null
@@ -51,17 +52,18 @@ export type Database = {
           payment_status: Database["booking"]["Enums"]["payment_status"]
           period: unknown
           quoted_total: number
+          rate_tier_id: string | null
           reference_code: string
           room_id: string
           room_type_id: string
           source: Database["booking"]["Enums"]["booking_source"]
           status: Database["booking"]["Enums"]["booking_status"]
-          stay_type: Database["booking"]["Enums"]["stay_type"]
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          guest_count?: number
           guest_email?: string | null
           guest_name: string
           guest_phone?: string | null
@@ -70,17 +72,18 @@ export type Database = {
           payment_status?: Database["booking"]["Enums"]["payment_status"]
           period: unknown
           quoted_total: number
+          rate_tier_id?: string | null
           reference_code?: string
           room_id: string
           room_type_id: string
           source?: Database["booking"]["Enums"]["booking_source"]
           status?: Database["booking"]["Enums"]["booking_status"]
-          stay_type: Database["booking"]["Enums"]["stay_type"]
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          guest_count?: number
           guest_email?: string | null
           guest_name?: string
           guest_phone?: string | null
@@ -89,15 +92,22 @@ export type Database = {
           payment_status?: Database["booking"]["Enums"]["payment_status"]
           period?: unknown
           quoted_total?: number
+          rate_tier_id?: string | null
           reference_code?: string
           room_id?: string
           room_type_id?: string
           source?: Database["booking"]["Enums"]["booking_source"]
           status?: Database["booking"]["Enums"]["booking_status"]
-          stay_type?: Database["booking"]["Enums"]["stay_type"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bookings_rate_tier_id_fkey"
+            columns: ["rate_tier_id"]
+            isOneToOne: false
+            referencedRelation: "rate_tiers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bookings_room_id_fkey"
             columns: ["room_id"]
@@ -218,38 +228,85 @@ export type Database = {
         }
         Relationships: []
       }
-      room_types: {
+      rate_tiers: {
         Row: {
-          capacity: number
           created_at: string
-          description: string | null
-          hourly_rate: number | null
+          duration_hours: number | null
           id: string
           is_active: boolean
-          name: string
-          nightly_rate: number
+          kind: Database["booking"]["Enums"]["tier_kind"]
+          label: string
+          price: number
+          room_type_id: string
+          sort_order: number
           updated_at: string
         }
         Insert: {
-          capacity?: number
           created_at?: string
-          description?: string | null
-          hourly_rate?: number | null
+          duration_hours?: number | null
           id?: string
           is_active?: boolean
-          name: string
-          nightly_rate: number
+          kind: Database["booking"]["Enums"]["tier_kind"]
+          label: string
+          price: number
+          room_type_id: string
+          sort_order?: number
           updated_at?: string
         }
         Update: {
-          capacity?: number
           created_at?: string
-          description?: string | null
-          hourly_rate?: number | null
+          duration_hours?: number | null
           id?: string
           is_active?: boolean
+          kind?: Database["booking"]["Enums"]["tier_kind"]
+          label?: string
+          price?: number
+          room_type_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_tiers_room_type_id_fkey"
+            columns: ["room_type_id"]
+            isOneToOne: false
+            referencedRelation: "room_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_types: {
+        Row: {
+          base_occupancy: number
+          created_at: string
+          description: string | null
+          excess_person_rate: number
+          id: string
+          is_active: boolean
+          max_occupancy: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          base_occupancy?: number
+          created_at?: string
+          description?: string | null
+          excess_person_rate?: number
+          id?: string
+          is_active?: boolean
+          max_occupancy?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          base_occupancy?: number
+          created_at?: string
+          description?: string | null
+          excess_person_rate?: number
+          id?: string
+          is_active?: boolean
+          max_occupancy?: number
           name?: string
-          nightly_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -354,17 +411,19 @@ export type Database = {
         Args: {
           p_check_in: string
           p_check_out: string
+          p_guest_count: number
           p_guest_email: string
           p_guest_name: string
           p_guest_phone: string
           p_notes?: string
+          p_rate_tier_id: string
           p_room_type_id: string
           p_source: Database["booking"]["Enums"]["booking_source"]
-          p_stay_type: Database["booking"]["Enums"]["stay_type"]
         }
         Returns: {
           created_at: string
           created_by: string | null
+          guest_count: number
           guest_email: string | null
           guest_name: string
           guest_phone: string | null
@@ -373,12 +432,12 @@ export type Database = {
           payment_status: Database["booking"]["Enums"]["payment_status"]
           period: unknown
           quoted_total: number
+          rate_tier_id: string | null
           reference_code: string
           room_id: string
           room_type_id: string
           source: Database["booking"]["Enums"]["booking_source"]
           status: Database["booking"]["Enums"]["booking_status"]
-          stay_type: Database["booking"]["Enums"]["stay_type"]
           updated_at: string
         }
         SetofOptions: {
@@ -408,7 +467,7 @@ export type Database = {
       payment_method: "cash" | "gcash" | "card" | "bank_transfer" | "other"
       payment_status: "unpaid" | "partial" | "paid"
       room_status: "vacant" | "occupied" | "cleaning" | "out_of_service"
-      stay_type: "nightly" | "hourly"
+      tier_kind: "block" | "overnight"
       user_role: "admin" | "front_desk"
     }
     CompositeTypes: {
@@ -549,7 +608,7 @@ export const Constants = {
       payment_method: ["cash", "gcash", "card", "bank_transfer", "other"],
       payment_status: ["unpaid", "partial", "paid"],
       room_status: ["vacant", "occupied", "cleaning", "out_of_service"],
-      stay_type: ["nightly", "hourly"],
+      tier_kind: ["block", "overnight"],
       user_role: ["admin", "front_desk"],
     },
   },

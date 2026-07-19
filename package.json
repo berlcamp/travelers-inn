@@ -16,7 +16,7 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema booking > src/types/database.types.ts",
     "db:types:linked": "supabase gen types typescript --linked --schema booking > src/types/database.types.ts",
-    "test:db": "node supabase/tests/invite-claim.test.mjs && node supabase/tests/rooms.test.mjs && node supabase/tests/bookings.test.mjs && node supabase/tests/front-desk.test.mjs && node supabase/tests/portal.test.mjs && node --experimental-strip-types supabase/tests/reports.test.ts"
+    "test:db": "node supabase/tests/invite-claim.test.mjs && node supabase/tests/rooms.test.mjs && node supabase/tests/bookings.test.mjs && node supabase/tests/front-desk.test.mjs && node supabase/tests/portal.test.mjs && node --experimental-strip-types supabase/tests/reports.test.ts && node --experimental-strip-types supabase/tests/pricing.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

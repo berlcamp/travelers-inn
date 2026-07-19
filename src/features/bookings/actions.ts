@@ -29,15 +29,18 @@ export async function createBooking(
       p_guest_phone: parsed.guest_phone || "",
       p_guest_email: parsed.guest_email || "",
       p_room_type_id: parsed.room_type_id,
-      p_stay_type: parsed.stay_type,
+      p_rate_tier_id: parsed.rate_tier_id,
+      p_guest_count: parsed.guest_count,
       p_check_in: toIso(parsed.check_in),
-      p_check_out: toIso(parsed.check_out),
+      // Blocks derive check-out server-side; pass check-in as a harmless
+      // placeholder when the form left it empty.
+      p_check_out: toIso(parsed.check_out || parsed.check_in),
       p_source: "walk_in",
       p_notes: parsed.notes || "",
     });
 
     // fn_create_booking raises user-safe messages (no availability, invalid
-    // period, hourly unavailable, inactive type) — surface them directly.
+    // period, over-capacity, inactive type/rate) — surface them directly.
     if (error) return fail(error.message);
 
     const row = (Array.isArray(data) ? data[0] : data) as {

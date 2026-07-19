@@ -1,46 +1,82 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { quote, type StayType } from "@/features/bookings/pricing";
-import type { RoomType } from "@/features/rooms/repository";
+import type { RoomType, RateTier, RoomTypeWithTiers } from "@/features/rooms/repository";
+
+export type PortalTier = Pick<RateTier, "id" | "label" | "kind" | "duration_hours" | "price">;
 
 export type AvailabilityOption = {
   id: string;
   name: string;
   description: string | null;
-  capacity: number;
-  nightlyRate: number;
-  hourlyRate: number | null;
+  base_occupancy: number;
+  max_occupancy: number;
+  excess_person_rate: number;
+  tiers: PortalTier[];
   available: number;
-  units: number;
-  total: number;
-  unitLabel: string;
-  priceError: string | null;
+  fromPrice: number; // cheapest tier, shown as a "from" teaser
 };
+
+const TYPE_SELECT = "*, rate_tiers(*)";
 
 // Portal reads go through the admin client (server-only) so fn_count_available
 // stays off the anon grant list. Room types themselves are public-readable.
-export async function listActiveRoomTypesPublic(): Promise<RoomType[]> {
-  const admin = createAdminClient();
-  const { data } = await admin.from("room_types").select("*").eq("is_active", true).order("name");
-  return data ?? [];
-}
-
-export async function getRoomTypePublic(id: string): Promise<RoomType | null> {
+export async function listActiveRoomTypesPublic(): Promise<RoomTypeWithTiers[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("room_types")
-    .select("*")
+    .select(TYPE_SELECT)
+    .eq("is_active", true)
+    .order("name");
+  return ((data as RoomTypeWithTiers[] | null) ?? []).map(withActiveTiers);
+}
+
+export async function getRoomTypePublic(id: string): Promise<RoomTypeWithTiers | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("room_types")
+    .select(TYPE_SELECT)
     .eq("id", id)
     .eq("is_active", true)
     .maybeSingle();
-  return data ?? null;
+  return data ? withActiveTiers(data as RoomTypeWithTiers) : null;
 }
 
-// For each active room type, how many rooms are free in the window and what the
-// stay would cost. Hourly types without an hourly rate are omitted for hourly.
+function withActiveTiers(t: RoomTypeWithTiers): RoomTypeWithTiers {
+  return {
+    ...t,
+    rate_tiers: [...(t.rate_tiers ?? [])]
+      .filter((r) => r.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order),
+  };
+}
+
+function toOption(t: RoomTypeWithTiers, available: number): AvailabilityOption {
+  const tiers: PortalTier[] = t.rate_tiers.map((r) => ({
+    id: r.id,
+    label: r.label,
+    kind: r.kind,
+    duration_hours: r.duration_hours,
+    price: Number(r.price),
+  }));
+  const fromPrice = tiers.length ? Math.min(...tiers.map((r) => r.price)) : 0;
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    base_occupancy: t.base_occupancy,
+    max_occupancy: t.max_occupancy,
+    excess_person_rate: Number(t.excess_person_rate),
+    tiers,
+    available,
+    fromPrice,
+  };
+}
+
+// For each active room type, how many rooms are free in the window plus its
+// tiers/occupancy (so the book page can price any tier client-side). Types
+// without any active tier are omitted — they can't be booked.
 export async function listPortalAvailability(
   checkInISO: string,
-  checkOutISO: string,
-  stayType: StayType
+  checkOutISO: string
 ): Promise<AvailabilityOption[]> {
   const admin = createAdminClient();
   const types = await listActiveRoomTypesPublic();
@@ -52,30 +88,11 @@ export async function listPortalAvailability(
         p_check_in: checkInISO,
         p_check_out: checkOutISO,
       });
-      const q = quote(
-        stayType,
-        new Date(checkInISO),
-        new Date(checkOutISO),
-        Number(t.nightly_rate),
-        t.hourly_rate != null ? Number(t.hourly_rate) : null
-      );
-      const hasPrice = "total" in q;
-      return {
-        id: t.id,
-        name: t.name,
-        description: t.description,
-        capacity: t.capacity,
-        nightlyRate: Number(t.nightly_rate),
-        hourlyRate: t.hourly_rate != null ? Number(t.hourly_rate) : null,
-        available: (count as number) ?? 0,
-        units: hasPrice ? q.units : 0,
-        total: hasPrice ? q.total : 0,
-        unitLabel: hasPrice ? q.unitLabel : "",
-        priceError: hasPrice ? null : q.error,
-      } satisfies AvailabilityOption;
+      return toOption(t, (count as number) ?? 0);
     })
   );
 
-  // For hourly searches, drop types that don't offer an hourly rate.
-  return options.filter((o) => !(stayType === "hourly" && o.priceError));
+  return options.filter((o) => o.tiers.length > 0);
 }
+
+export type { RoomType };

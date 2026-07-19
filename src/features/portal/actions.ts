@@ -7,7 +7,6 @@ import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result"
 import { portalBookingSchema } from "./schemas";
 
 const MAX_NIGHTS = 30;
-const MAX_HOURS = 24;
 
 // Public (no-login) portal booking. Runs entirely server-side through the admin
 // client so fn_create_booking stays off the anon grant; every mutation passes
@@ -19,22 +18,22 @@ export async function createPortalBooking(
     const parsed = portalBookingSchema.parse(input);
 
     const checkIn = new Date(parsed.check_in);
-    const checkOut = new Date(parsed.check_out);
-    if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime())) {
-      return fail("Please choose valid dates.");
-    }
+    if (Number.isNaN(checkIn.getTime())) return fail("Please choose a valid date.");
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     if (checkIn < startOfToday) return fail("Please choose a future date.");
-    if (checkOut <= checkIn) return fail("Check-out must be after check-in.");
 
-    const ms = checkOut.getTime() - checkIn.getTime();
-    if (parsed.stay_type === "nightly" && ms > MAX_NIGHTS * 86_400_000) {
-      return fail("For stays longer than a month, please contact us directly.");
-    }
-    if (parsed.stay_type === "hourly" && ms > MAX_HOURS * 3_600_000) {
-      return fail("For hourly stays please keep it within a day.");
+    // Overnight stays send a check-out; blocks derive it server-side.
+    let checkOutISO = checkIn.toISOString();
+    if (parsed.check_out) {
+      const checkOut = new Date(parsed.check_out);
+      if (Number.isNaN(checkOut.getTime())) return fail("Please choose a valid check-out date.");
+      if (checkOut <= checkIn) return fail("Check-out must be after check-in.");
+      if (checkOut.getTime() - checkIn.getTime() > MAX_NIGHTS * 86_400_000) {
+        return fail("For stays longer than a month, please contact us directly.");
+      }
+      checkOutISO = checkOut.toISOString();
     }
 
     const admin = createAdminClient();
@@ -43,9 +42,10 @@ export async function createPortalBooking(
       p_guest_phone: parsed.guest_phone,
       p_guest_email: parsed.guest_email || "",
       p_room_type_id: parsed.room_type_id,
-      p_stay_type: parsed.stay_type,
+      p_rate_tier_id: parsed.rate_tier_id,
+      p_guest_count: parsed.guest_count,
       p_check_in: checkIn.toISOString(),
-      p_check_out: checkOut.toISOString(),
+      p_check_out: checkOutISO,
       p_source: "portal",
       p_notes: "",
     });

@@ -6,7 +6,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
 import { BookingManageDialog } from "./booking-manage-dialog";
 import { peso } from "@/features/bookings/pricing";
-import { STAY_TYPE_LABELS, type BookingStatus } from "@/features/bookings/schemas";
+import { type BookingStatus } from "@/features/bookings/schemas";
 import type { BookingRow } from "@/features/bookings/repository";
 
 const dt = new Intl.DateTimeFormat("en-PH", {
@@ -75,7 +75,8 @@ const columns: ColumnDef<BookingRow>[] = [
           {fmt(row.original.checkIn)} → {fmt(row.original.checkOut)}
         </span>
         <span className="text-muted-foreground text-xs">
-          {STAY_TYPE_LABELS[row.original.stay_type]}
+          {row.original.rate_tier?.label ?? "—"} · {row.original.guest_count} guest
+          {row.original.guest_count === 1 ? "" : "s"}
         </span>
       </div>
     ),

@@ -25,7 +25,7 @@ import {
 } from "@/features/bookings/front-desk-actions";
 import { cancelBooking } from "@/features/bookings/actions";
 import { peso } from "@/features/bookings/pricing";
-import { STAY_TYPE_LABELS, type BookingStatus } from "@/features/bookings/schemas";
+import { type BookingStatus } from "@/features/bookings/schemas";
 import { PAYMENT_METHOD_LABELS } from "@/features/bookings/payment-schema";
 import type { BookingDetail } from "@/features/bookings/repository";
 
@@ -111,7 +111,11 @@ export function BookingManageDialog({
               <Field label="Room type" value={b.room_type?.name ?? "—"} />
               <Field label="Check-in" value={fmt(b.checkIn)} />
               <Field label="Check-out" value={fmt(b.checkOut)} />
-              <Field label="Stay" value={STAY_TYPE_LABELS[b.stay_type]} />
+              <Field label="Rate" value={b.rate_tier?.label ?? "—"} />
+              <Field
+                label="Guests"
+                value={`${b.guest_count} guest${b.guest_count === 1 ? "" : "s"}`}
+              />
               <Field label="Contact" value={b.guest_phone || b.guest_email || "—"} />
             </div>
 

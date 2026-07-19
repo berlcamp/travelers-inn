@@ -1,15 +1,17 @@
 import { z } from "zod";
 
 // Walk-in / staff booking form. check_in/check_out are datetime-local strings
-// (local wall-clock, no timezone) converted to ISO in the action.
+// (local wall-clock, no timezone) converted to ISO in the action. For block
+// tiers check_out is derived server-side, so it may be empty here.
 export const bookingSchema = z.object({
   guest_name: z.string().trim().min(1, "Guest name is required").max(120),
   guest_phone: z.string().trim().max(40).optional().or(z.literal("")),
   guest_email: z.string().trim().email("Invalid email").optional().or(z.literal("")),
   room_type_id: z.string().uuid("Select a room type"),
-  stay_type: z.enum(["nightly", "hourly"]),
+  rate_tier_id: z.string().uuid("Select a rate"),
+  guest_count: z.coerce.number().int().min(1, "At least 1 guest").max(50),
   check_in: z.string().min(1, "Check-in is required"),
-  check_out: z.string().min(1, "Check-out is required"),
+  check_out: z.string().optional().or(z.literal("")),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
 });
 export type BookingFormValues = z.input<typeof bookingSchema>;
@@ -36,9 +38,4 @@ export const PAYMENT_STATUS_LABELS: Record<"unpaid" | "partial" | "paid", string
   unpaid: "Unpaid",
   partial: "Partial",
   paid: "Paid",
-};
-
-export const STAY_TYPE_LABELS: Record<"nightly" | "hourly", string> = {
-  nightly: "Nightly",
-  hourly: "Hourly",
 };

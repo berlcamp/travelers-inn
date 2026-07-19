@@ -16,11 +16,11 @@ import {
 import { DataTable } from "@/components/shared/data-table";
 import { RoomTypeFormDialog } from "./room-type-form-dialog";
 import { toggleRoomTypeActive } from "@/features/rooms/actions";
-import type { RoomType } from "@/features/rooms/repository";
+import type { RoomTypeWithTiers } from "@/features/rooms/repository";
 
 const peso = new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" });
 
-function RowActions({ roomType }: { roomType: RoomType }) {
+function RowActions({ roomType }: { roomType: RoomTypeWithTiers }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -72,19 +72,45 @@ function RowActions({ roomType }: { roomType: RoomType }) {
   );
 }
 
-const columns: ColumnDef<RoomType>[] = [
+const columns: ColumnDef<RoomTypeWithTiers>[] = [
   { accessorKey: "name", header: "Name" },
-  { accessorKey: "capacity", header: "Capacity" },
   {
-    accessorKey: "nightly_rate",
-    header: "Nightly",
-    cell: ({ row }) => peso.format(Number(row.original.nightly_rate)),
+    id: "occupancy",
+    header: "Guests",
+    cell: ({ row }) => {
+      const t = row.original;
+      return (
+        <span className="text-sm">
+          {t.base_occupancy}–{t.max_occupancy}
+          {Number(t.excess_person_rate) > 0 ? (
+            <span className="text-muted-foreground text-xs">
+              {" "}
+              · +{peso.format(Number(t.excess_person_rate))}/head
+            </span>
+          ) : null}
+        </span>
+      );
+    },
   },
   {
-    accessorKey: "hourly_rate",
-    header: "Hourly",
-    cell: ({ row }) =>
-      row.original.hourly_rate != null ? peso.format(Number(row.original.hourly_rate)) : "—",
+    id: "tiers",
+    header: "Rates",
+    cell: ({ row }) => {
+      const active = row.original.rate_tiers.filter((r) => r.is_active);
+      if (active.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+      return (
+        <div className="flex flex-wrap gap-1">
+          {active.map((r) => (
+            <span
+              key={r.id}
+              className="bg-muted text-foreground/80 rounded px-1.5 py-0.5 text-xs"
+            >
+              {r.label} · {peso.format(Number(r.price))}
+            </span>
+          ))}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "is_active",
@@ -103,7 +129,7 @@ const columns: ColumnDef<RoomType>[] = [
   },
 ];
 
-export function RoomTypesTable({ roomTypes }: { roomTypes: RoomType[] }) {
+export function RoomTypesTable({ roomTypes }: { roomTypes: RoomTypeWithTiers[] }) {
   return (
     <DataTable
       columns={columns}

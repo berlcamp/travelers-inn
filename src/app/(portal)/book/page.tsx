@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays } from "lucide-react";
+import { ArrowLeft, CalendarDays, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PortalBookingForm } from "@/features/portal/components/portal-booking-form";
 import { RoomVisual } from "@/features/portal/components/room-visual";
 import { getRoomTypePublic, listPortalAvailability } from "@/features/portal/repository";
-import { peso, type StayType } from "@/features/bookings/pricing";
+import { peso } from "@/features/bookings/pricing";
 
 export const metadata: Metadata = { title: "Complete your booking" };
 
@@ -13,10 +13,8 @@ const dtFmt = new Intl.DateTimeFormat("en-PH", {
   weekday: "short",
   month: "short",
   day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
 });
-function fmt(local: string) {
+function fmtDate(local: string) {
   const d = new Date(local);
   return Number.isNaN(d.getTime()) ? "—" : dtFmt.format(d);
 }
@@ -24,11 +22,9 @@ function fmt(local: string) {
 export default async function BookPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; checkIn?: string; checkOut?: string; stay?: string }>;
+  searchParams: Promise<{ type?: string; checkIn?: string; checkOut?: string }>;
 }) {
   const sp = await searchParams;
-  const stay: StayType = sp.stay === "hourly" ? "hourly" : "nightly";
-
   const roomType = sp.type ? await getRoomTypePublic(sp.type) : null;
 
   if (!roomType || !sp.checkIn || !sp.checkOut) {
@@ -37,18 +33,17 @@ export default async function BookPage({
 
   const options = await listPortalAvailability(
     new Date(sp.checkIn).toISOString(),
-    new Date(sp.checkOut).toISOString(),
-    stay
+    new Date(sp.checkOut).toISOString()
   );
   const option = options.find((o) => o.id === roomType.id);
 
-  if (!option || option.available <= 0 || option.priceError) {
+  if (!option || option.available <= 0 || option.tiers.length === 0) {
     return (
       <Unavailable message="Sorry — that room just booked out for your dates. Try another room or time." />
     );
   }
 
-  const stayLabel = `${fmt(sp.checkIn)} → ${fmt(sp.checkOut)}`;
+  const stayLabel = `${fmtDate(sp.checkIn)} → ${fmtDate(sp.checkOut)}`;
 
   return (
     <div className="mx-auto w-full max-w-4xl px-5 py-10">
@@ -74,12 +69,19 @@ export default async function BookPage({
               <CalendarDays className="mt-0.5 size-4 shrink-0" />
               <span>{stayLabel}</span>
             </div>
+            <div className="text-muted-foreground flex items-start gap-2 text-sm">
+              <Users className="mt-0.5 size-4 shrink-0" />
+              <span>
+                Sleeps up to {option.max_occupancy}
+                {option.excess_person_rate > 0
+                  ? ` · ${peso.format(option.excess_person_rate)}/head beyond ${option.base_occupancy}`
+                  : ""}
+              </span>
+            </div>
             <div className="border-border/70 flex items-center justify-between border-t pt-4">
               <div>
-                <div className="text-muted-foreground text-xs">
-                  {option.units} {option.unitLabel}
-                </div>
-                <div className="text-2xl font-semibold">{peso.format(option.total)}</div>
+                <div className="text-muted-foreground text-xs">from</div>
+                <div className="text-2xl font-semibold">{peso.format(option.fromPrice)}</div>
               </div>
               <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full px-2.5 py-1 text-xs font-medium">
                 {option.available} available
@@ -91,15 +93,13 @@ export default async function BookPage({
         {/* Form */}
         <div className="flex flex-col gap-4">
           <h2 className="font-[family-name:var(--font-fraunces)] text-xl font-semibold">
-            Your details
+            Your stay &amp; details
           </h2>
           <PortalBookingForm
-            roomTypeId={option.id}
+            option={option}
             roomTypeName={option.name}
-            stay={stay}
             checkIn={sp.checkIn}
             checkOut={sp.checkOut}
-            stayLabel={stayLabel}
           />
         </div>
       </div>

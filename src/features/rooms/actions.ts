@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
+import { z } from "zod";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
 import { roomTypeSchema, roomSchema, ROOM_STATUSES, type RoomStatus } from "./schemas";
 
@@ -18,9 +19,9 @@ export async function saveRoomType(input: unknown): Promise<ActionResult<{ id: s
     const row = {
       name: parsed.name,
       description: parsed.description || null,
-      capacity: parsed.capacity,
-      nightly_rate: parsed.nightly_rate,
-      hourly_rate: parsed.hourly_rate ?? null,
+      base_occupancy: parsed.base_occupancy,
+      max_occupancy: parsed.max_occupancy,
+      excess_person_rate: parsed.excess_person_rate,
       is_active: parsed.is_active,
     };
 
@@ -44,18 +45,75 @@ export async function saveRoomType(input: unknown): Promise<ActionResult<{ id: s
       id = data.id;
     }
 
+    // Reconcile rate tiers. Existing tiers may be referenced by bookings
+    // (rate_tier_id ON DELETE RESTRICT), so tiers dropped from the form are
+    // deactivated rather than deleted; kept tiers are upserted with their order.
+    const tierError = await syncRateTiers(supabase, id, parsed.tiers);
+    if (tierError) return fail(tierError);
+
     await logAudit({
       actorId: user.id,
       action: parsed.id ? "room_type.update" : "room_type.create",
       entity: "room_type",
       entityId: id,
-      diff: row,
+      diff: { ...row, tiers: parsed.tiers.length },
     });
     revalidatePath("/room-types");
     return ok({ id });
   } catch (err) {
     return toActionError(err);
   }
+}
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+type TierInput = z.infer<typeof roomTypeSchema>["tiers"][number];
+
+async function syncRateTiers(
+  supabase: SupabaseClient,
+  roomTypeId: string,
+  tiers: TierInput[]
+): Promise<string | null> {
+  const { data: existing, error: fetchErr } = await supabase
+    .from("rate_tiers")
+    .select("id")
+    .eq("room_type_id", roomTypeId);
+  if (fetchErr) return fetchErr.message;
+
+  const keptIds = new Set<string>();
+  for (const [i, t] of tiers.entries()) {
+    const values = {
+      room_type_id: roomTypeId,
+      label: t.label,
+      kind: t.kind,
+      duration_hours: t.kind === "block" ? (t.duration_hours ?? null) : null,
+      price: t.price,
+      sort_order: i,
+      is_active: true,
+    };
+    if (t.id) {
+      keptIds.add(t.id);
+      const { error } = await supabase.from("rate_tiers").update(values).eq("id", t.id);
+      if (error) return error.message;
+    } else {
+      const { data, error } = await supabase
+        .from("rate_tiers")
+        .insert(values)
+        .select("id")
+        .single();
+      if (error) return error.message;
+      keptIds.add(data.id);
+    }
+  }
+
+  const toDeactivate = (existing ?? []).map((r) => r.id).filter((rid) => !keptIds.has(rid));
+  if (toDeactivate.length > 0) {
+    const { error } = await supabase
+      .from("rate_tiers")
+      .update({ is_active: false })
+      .in("id", toDeactivate);
+    if (error) return error.message;
+  }
+  return null;
 }
 
 export async function toggleRoomTypeActive(

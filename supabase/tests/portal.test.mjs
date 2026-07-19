@@ -36,10 +36,15 @@ async function main() {
   // Single-room type so we can exhaust it.
   const { data: solo } = await b
     .from("room_types")
-    .insert({ name: "Portal Solo", capacity: 2, nightly_rate: 1200, hourly_rate: null })
+    .insert({ name: "Portal Solo", base_occupancy: 2, max_occupancy: 2, excess_person_rate: 0 })
     .select("id")
     .single();
   await b.from("rooms").insert({ room_type_id: solo.id, label: "P1" });
+  const { data: tier } = await b
+    .from("rate_tiers")
+    .insert({ room_type_id: solo.id, label: "Overnight", kind: "overnight", price: 1200 })
+    .select("id")
+    .single();
 
   await test("a portal booking auto-confirms with source='portal'", async () => {
     const { data, error } = await b.rpc("fn_create_booking", {
@@ -47,7 +52,8 @@ async function main() {
       p_guest_phone: "09170000000",
       p_guest_email: "",
       p_room_type_id: solo.id,
-      p_stay_type: "nightly",
+      p_rate_tier_id: tier.id,
+      p_guest_count: 2,
       p_check_in: W[0],
       p_check_out: W[1],
       p_source: "portal",
@@ -66,7 +72,8 @@ async function main() {
       p_guest_phone: "09171111111",
       p_guest_email: "",
       p_room_type_id: solo.id,
-      p_stay_type: "nightly",
+      p_rate_tier_id: tier.id,
+      p_guest_count: 2,
       p_check_in: W[0],
       p_check_out: W[1],
       p_source: "portal",
