@@ -24,7 +24,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <BedDouble className="size-5" />
             </span>
             <span className="font-[family-name:var(--font-fraunces)] text-xl font-semibold tracking-tight">
-              Travelers Inn
+              Bañares Traveler&apos;s Inn
             </span>
           </Link>
           <Link
@@ -41,7 +41,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <footer className="border-border/60 border-t">
         <div className="text-muted-foreground mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-2 px-5 py-8 text-sm sm:flex-row sm:items-center">
           <span className="font-[family-name:var(--font-fraunces)] text-foreground text-base">
-            Travelers Inn
+            Bañares Traveler&apos;s Inn
           </span>
           <span>A warm welcome, any hour of the day.</span>
         </div>

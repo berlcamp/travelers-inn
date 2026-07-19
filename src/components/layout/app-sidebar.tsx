@@ -51,7 +51,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
             <BedDouble className="size-4" />
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-sidebar-foreground text-sm font-semibold">Travelers Inn</span>
+            <span className="text-sidebar-foreground text-sm font-semibold">Bañares Traveler&apos;s Inn</span>
             <span className="text-sidebar-foreground/60 text-xs">Reservations</span>
           </div>
         </div>

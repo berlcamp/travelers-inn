@@ -7,7 +7,7 @@ import type { StayType } from "@/features/bookings/pricing";
 
 export const metadata: Metadata = {
   title: "Book your stay",
-  description: "Comfortable rooms at Travelers Inn — book in seconds, any hour of the day.",
+  description: "Comfortable rooms at Bañares Traveler's Inn — book in seconds, any hour of the day.",
 };
 
 function pad(n: number) {

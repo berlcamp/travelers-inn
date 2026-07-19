@@ -32,7 +32,7 @@ export default async function LoginPage({
         <div className="bg-primary text-primary-foreground mb-2 flex size-12 items-center justify-center rounded-lg">
           <BedDouble className="size-6" />
         </div>
-        <CardTitle className="text-xl">Travelers Inn</CardTitle>
+        <CardTitle className="text-xl">Bañares Traveler&apos;s Inn</CardTitle>
         <CardDescription>Booking &amp; Reservation Management</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

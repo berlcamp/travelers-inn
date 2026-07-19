@@ -20,10 +20,10 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Travelers Inn",
-    template: "%s · Travelers Inn",
+    default: "Bañares Traveler's Inn",
+    template: "%s · Bañares Traveler's Inn",
   },
-  description: "Booking & Reservation Management System for Travelers Inn",
+  description: "Booking & Reservation Management System for Bañares Traveler's Inn",
 };
 
 export default function RootLayout({
