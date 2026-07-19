@@ -50,8 +50,8 @@
 
 /* Travelers Inn — a warm hospitality identity: a soft parchment canvas, white
    cards floating on it, a deep teal-green primary (calm, trustworthy) and a
-   warm amber accent (welcome, brass keys). The sidebar is a deep espresso in
-   both themes, evoking a boutique inn lobby. */
+   warm amber accent (welcome, brass keys). The sidebar is a cool slate/charcoal
+   in both themes, with the amber accent picking out the active nav item. */
 :root {
   --background: oklch(0.985 0.008 85);
   --foreground: oklch(0.22 0.02 60);
@@ -77,13 +77,13 @@
   --chart-4: oklch(0.55 0.22 25);
   --chart-5: oklch(0.58 0.13 300);
   --radius: 0.5rem;
-  --sidebar: oklch(0.26 0.02 60);
-  --sidebar-foreground: oklch(0.92 0.01 85);
+  --sidebar: oklch(0.27 0.02 250);
+  --sidebar-foreground: oklch(0.93 0.008 250);
   --sidebar-primary: oklch(0.78 0.13 65);
-  --sidebar-primary-foreground: oklch(0.22 0.02 60);
-  --sidebar-accent: oklch(0.32 0.02 60);
-  --sidebar-accent-foreground: oklch(0.95 0.008 85);
-  --sidebar-border: oklch(0.34 0.02 60);
+  --sidebar-primary-foreground: oklch(0.24 0.015 250);
+  --sidebar-accent: oklch(0.34 0.02 250);
+  --sidebar-accent-foreground: oklch(0.96 0.006 250);
+  --sidebar-border: oklch(0.36 0.02 250);
   --sidebar-ring: oklch(0.78 0.13 65);
 }
 
@@ -113,13 +113,13 @@
   --chart-3: oklch(0.68 0.12 145);
   --chart-4: oklch(0.65 0.2 25);
   --chart-5: oklch(0.66 0.14 300);
-  --sidebar: oklch(0.22 0.018 65);
-  --sidebar-foreground: oklch(0.92 0.01 85);
+  --sidebar: oklch(0.24 0.02 250);
+  --sidebar-foreground: oklch(0.93 0.008 250);
   --sidebar-primary: oklch(0.78 0.13 65);
-  --sidebar-primary-foreground: oklch(0.22 0.02 60);
-  --sidebar-accent: oklch(0.3 0.02 65);
-  --sidebar-accent-foreground: oklch(0.95 0.008 85);
-  --sidebar-border: oklch(0.32 0.02 65);
+  --sidebar-primary-foreground: oklch(0.24 0.015 250);
+  --sidebar-accent: oklch(0.31 0.02 250);
+  --sidebar-accent-foreground: oklch(0.96 0.006 250);
+  --sidebar-border: oklch(0.33 0.02 250);
   --sidebar-ring: oklch(0.78 0.13 65);
 }
 
