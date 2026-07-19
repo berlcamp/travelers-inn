@@ -46,55 +46,76 @@ export default async function PortalHome({
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[oklch(0.95_0.03_75)] to-[oklch(0.985_0.008_85)] dark:from-[oklch(0.24_0.03_65)] dark:to-[oklch(0.18_0.015_70)]" />
-        <div className="absolute -left-24 top-10 -z-10 size-72 rounded-full bg-[oklch(0.78_0.13_65)]/20 blur-3xl" />
-        <div className="absolute -right-16 top-32 -z-10 size-72 rounded-full bg-[oklch(0.5_0.09_185)]/15 blur-3xl" />
+      <section className="relative overflow-hidden bg-white">
+        {/* Fine dot-grid texture + soft brand glows — subtle depth on white, no heavy blobs. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 opacity-[0.5] [background-image:radial-gradient(circle_at_1px_1px,oklch(0.5_0.03_185)_1px,transparent_0)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+        />
+        <div
+          aria-hidden
+          className="absolute -right-32 -top-24 -z-10 size-[30rem] rounded-full bg-[oklch(0.78_0.13_65)]/10 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="absolute -left-40 top-24 -z-10 size-[26rem] rounded-full bg-[oklch(0.5_0.09_185)]/10 blur-3xl"
+        />
 
-        <div className="mx-auto w-full max-w-6xl px-5 pb-10 pt-16 sm:pt-24">
-          <p className="text-primary mb-3 text-sm font-medium uppercase tracking-[0.2em]">
+        <div className="mx-auto w-full max-w-6xl px-5 pb-14 pt-16 sm:px-8 sm:pt-24">
+          <p className="mb-4 inline-flex items-center gap-2 text-sm font-medium uppercase tracking-[0.22em] text-[oklch(0.5_0.09_60)]">
+            <span className="h-px w-8 bg-[oklch(0.62_0.13_55)]" />
             Rest easy, arrive anytime
           </p>
-          <h1 className="font-[family-name:var(--font-fraunces)] max-w-2xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+          <h1 className="font-[family-name:var(--font-fraunces)] max-w-3xl text-[2.75rem] font-semibold leading-[1.03] tracking-tight text-[oklch(0.22_0.02_60)] sm:text-6xl">
             A warm room waiting,{" "}
             <span className="text-primary italic">whenever</span> you travel.
           </h1>
-          <p className="text-muted-foreground mt-5 max-w-lg text-lg">
-            Nightly stays and short day-use rooms. Check availability, book in seconds — pay at the
-            front desk when you arrive.
+          <p className="text-muted-foreground mt-6 max-w-xl text-lg leading-relaxed">
+            Nightly stays and short day-use rooms in the heart of town. Check availability, book in
+            seconds — and pay at the front desk when you arrive.
           </p>
 
-          <div className="mt-8 max-w-3xl">
+          <div className="mt-9 max-w-3xl">
             <SearchBar defaults={{ checkIn: sp.checkIn, checkOut: sp.checkOut, stay }} />
           </div>
 
-          <div className="text-muted-foreground mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="size-4" /> 24-hour front desk
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="size-4" /> Instant confirmation
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="size-4" /> Pay on arrival
-            </span>
+          <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
+            {[
+              { icon: Clock, label: "24-hour front desk" },
+              { icon: ShieldCheck, label: "Instant confirmation" },
+              { icon: MapPin, label: "Pay on arrival" },
+            ].map(({ icon: Icon, label }) => (
+              <span key={label} className="text-foreground/80 inline-flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-full bg-[oklch(0.42_0.07_185)]/8 text-primary">
+                  <Icon className="size-3.5" />
+                </span>
+                {label}
+              </span>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Results */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-12">
-        <div className="mb-6 flex items-end justify-between">
-          <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-            {searched ? "Available for your dates" : "Our rooms"}
-          </h2>
-          <span className="text-muted-foreground text-sm">
+      <section className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8">
+        <div className="mb-8 flex items-end justify-between gap-4 border-b border-border pb-4">
+          <div>
+            <h2 className="font-[family-name:var(--font-fraunces)] text-3xl font-semibold tracking-tight">
+              {searched ? "Available for your dates" : "Our rooms"}
+            </h2>
+            <p className="text-muted-foreground mt-1.5 text-sm">
+              {searched
+                ? "Choose a room and reserve it in a couple of taps."
+                : "Thoughtfully kept rooms for every kind of traveler."}
+            </p>
+          </div>
+          <span className="text-muted-foreground shrink-0 rounded-full border border-border px-3 py-1 text-xs font-medium">
             {options.length} room {options.length === 1 ? "type" : "types"}
           </span>
         </div>
 
         {options.length === 0 ? (
-          <p className="text-muted-foreground rounded-xl border border-dashed p-10 text-center">
+          <p className="text-muted-foreground rounded-2xl border border-dashed border-border p-12 text-center">
             No rooms match that search. Try different dates.
           </p>
         ) : (

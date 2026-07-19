@@ -134,3 +134,29 @@
     @apply font-sans;
   }
 }
+
+/* Public surfaces (the booking portal + staff login) are always presented on a
+   clean white canvas, independent of the staff app's system-driven dark mode.
+   Pinning the design tokens here keeps token-based components (Button, Card,
+   borders) light without needing any `dark:` variants in the markup. */
+.force-light {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.23 0.02 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.23 0.02 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.23 0.02 60);
+  --primary: oklch(0.42 0.07 185);
+  --primary-foreground: oklch(0.99 0.005 85);
+  --secondary: oklch(0.965 0.01 85);
+  --secondary-foreground: oklch(0.3 0.03 70);
+  --muted: oklch(0.965 0.008 85);
+  --muted-foreground: oklch(0.5 0.02 70);
+  --accent: oklch(0.78 0.13 65);
+  --accent-foreground: oklch(0.28 0.04 60);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.92 0.008 80);
+  --input: oklch(0.92 0.008 80);
+  --ring: oklch(0.5 0.07 185);
+  color-scheme: light;
+}

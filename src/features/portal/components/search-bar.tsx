@@ -47,10 +47,10 @@ export function SearchBar({
   }
 
   const fieldCls =
-    "border-border bg-background focus:ring-ring/40 h-11 rounded-lg border px-3 text-sm outline-none focus:ring-2";
+    "border-border bg-background focus:ring-ring/40 focus:border-ring h-11 rounded-lg border px-3 text-sm outline-none transition-colors focus:ring-2";
 
   return (
-    <div className="bg-card/80 border-border/70 shadow-primary/5 flex flex-col gap-3 rounded-2xl border p-3 shadow-xl backdrop-blur sm:flex-row sm:items-end sm:gap-2">
+    <div className="border-border shadow-primary/5 flex flex-col gap-3 rounded-2xl border bg-white p-3 shadow-xl ring-1 ring-black/[0.02] sm:flex-row sm:items-end sm:gap-2.5">
       <div className="flex flex-1 flex-col gap-1.5">
         <label className="text-muted-foreground px-1 text-xs font-medium uppercase tracking-wide">
           Stay
@@ -62,7 +62,9 @@ export function SearchBar({
               type="button"
               onClick={() => setStay(s)}
               className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
-                stay === s ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                stay === s
+                  ? "bg-white text-foreground shadow-sm ring-1 ring-black/5"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {s}

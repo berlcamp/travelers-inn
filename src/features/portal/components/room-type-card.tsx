@@ -26,8 +26,8 @@ export function RoomTypeCard({
       : `${peso.format(option.nightlyRate)} / night`;
 
   return (
-    <article className="group border-border/70 bg-card flex flex-col overflow-hidden rounded-2xl border transition-shadow hover:shadow-lg">
-      <RoomVisual name={option.name} index={index} className="h-40" />
+    <article className="group border-border flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-black/[0.02] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
+      <RoomVisual name={option.name} index={index} className="h-44" />
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -43,7 +43,7 @@ export function RoomTypeCard({
               Fully booked
             </span>
           ) : (
-            <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full px-2.5 py-1 text-xs font-medium">
+            <span className="rounded-full bg-emerald-500/12 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/15">
               {option.available} left
             </span>
           )}
