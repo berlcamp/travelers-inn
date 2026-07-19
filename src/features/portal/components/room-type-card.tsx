@@ -21,7 +21,7 @@ export function RoomTypeCard({
 
   return (
     <article className="group border-border flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-black/[0.02] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
-      <RoomVisual name={option.name} index={index} className="h-44" />
+      <RoomVisual name={option.name} index={index} imageUrl={option.imageUrl} className="h-44" />
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>

@@ -19,6 +19,7 @@ export async function saveRoomType(input: unknown): Promise<ActionResult<{ id: s
     const row = {
       name: parsed.name,
       description: parsed.description || null,
+      image_url: parsed.image_url || null,
       base_occupancy: parsed.base_occupancy,
       max_occupancy: parsed.max_occupancy,
       excess_person_rate: parsed.excess_person_rate,
@@ -134,6 +135,44 @@ export async function toggleRoomTypeActive(
     });
     revalidatePath("/room-types");
     return ok({ id });
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+// ---- Room-type photo upload (admin only) ------------------------------------
+
+const PHOTO_BUCKET = "travelers-inn-room-photos";
+const ALLOWED_IMAGE_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+
+// Uploads a single cover photo and returns its public URL. Kept separate from
+// saveRoomType so that action stays a clean Zod-parsed JSON mutation; the URL
+// rides along in the form's `image_url` field on save.
+export async function uploadRoomTypePhoto(
+  formData: FormData
+): Promise<ActionResult<{ url: string }>> {
+  try {
+    await requireRole(["admin"]);
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) return fail("No file provided.");
+    if (file.size > MAX_PHOTO_BYTES) return fail("Image must be 5 MB or smaller.");
+    const ext = ALLOWED_IMAGE_TYPES[file.type];
+    if (!ext) return fail("Use a JPEG, PNG, or WebP image.");
+
+    const supabase = await createClient();
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) return fail(error.message);
+
+    const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+    return ok({ url: data.publicUrl });
   } catch (err) {
     return toActionError(err);
   }

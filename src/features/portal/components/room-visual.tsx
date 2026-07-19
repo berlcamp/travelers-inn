@@ -20,14 +20,30 @@ function hash(s: string): number {
 export function RoomVisual({
   name,
   index,
+  imageUrl,
   className,
 }: {
   name: string;
   // When rendered in a list, pass the position so adjacent cards differ;
   // standalone (e.g. the booking page) falls back to a name hash.
   index?: number;
+  // Real cover photo, when the room type has one; otherwise a gradient stands in.
+  imageUrl?: string | null;
   className?: string;
 }) {
+  if (imageUrl) {
+    return (
+      <div className={cn("relative flex items-end overflow-hidden text-white", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt={name} className="absolute inset-0 size-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+        <span className="font-[family-name:var(--font-fraunces)] relative p-4 text-lg font-medium leading-tight drop-shadow-sm">
+          {name}
+        </span>
+      </div>
+    );
+  }
+
   const palette = PALETTES[(index ?? hash(name)) % PALETTES.length];
   return (
     <div

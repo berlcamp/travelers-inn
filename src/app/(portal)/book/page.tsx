@@ -62,7 +62,7 @@ export default async function BookPage({
       <div className="grid gap-8 md:grid-cols-[1fr_1.1fr]">
         {/* Summary */}
         <div className="border-border bg-card flex flex-col overflow-hidden rounded-2xl border">
-          <RoomVisual name={option.name} className="h-40" />
+          <RoomVisual name={option.name} imageUrl={option.imageUrl} className="h-40" />
           <div className="flex flex-col gap-4 p-6">
             <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
               {option.name}

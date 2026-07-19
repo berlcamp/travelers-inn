@@ -282,6 +282,7 @@ export type Database = {
           description: string | null
           excess_person_rate: number
           id: string
+          image_url: string | null
           is_active: boolean
           max_occupancy: number
           name: string
@@ -293,6 +294,7 @@ export type Database = {
           description?: string | null
           excess_person_rate?: number
           id?: string
+          image_url?: string | null
           is_active?: boolean
           max_occupancy?: number
           name: string
@@ -304,6 +306,7 @@ export type Database = {
           description?: string | null
           excess_person_rate?: number
           id?: string
+          image_url?: string | null
           is_active?: boolean
           max_occupancy?: number
           name?: string

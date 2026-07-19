@@ -39,6 +39,7 @@ export const roomTypeSchema = z
     id: z.string().uuid().optional(),
     name: z.string().trim().min(1, "Name is required").max(80),
     description: z.string().trim().max(500).optional().or(z.literal("")),
+    image_url: z.string().url("Invalid image URL").optional().or(z.literal("")),
     base_occupancy: z.coerce.number().int().min(1, "At least 1").max(50),
     max_occupancy: z.coerce.number().int().min(1, "At least 1").max(50),
     excess_person_rate: z.coerce.number().min(0, "Must be ≥ 0"),

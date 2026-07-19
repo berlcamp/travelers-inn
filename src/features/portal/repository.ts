@@ -7,6 +7,7 @@ export type AvailabilityOption = {
   id: string;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   base_occupancy: number;
   max_occupancy: number;
   excess_person_rate: number;
@@ -62,6 +63,7 @@ function toOption(t: RoomTypeWithTiers, available: number): AvailabilityOption {
     id: t.id,
     name: t.name,
     description: t.description,
+    imageUrl: t.image_url,
     base_occupancy: t.base_occupancy,
     max_occupancy: t.max_occupancy,
     excess_person_rate: Number(t.excess_person_rate),

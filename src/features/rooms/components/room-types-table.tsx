@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Pencil, Power, PowerOff } from "lucide-react";
+import { ImageOff, MoreHorizontal, Pencil, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +73,23 @@ function RowActions({ roomType }: { roomType: RoomTypeWithTiers }) {
 }
 
 const columns: ColumnDef<RoomTypeWithTiers>[] = [
+  {
+    id: "photo",
+    header: () => <span className="sr-only">Photo</span>,
+    cell: ({ row }) =>
+      row.original.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={row.original.image_url}
+          alt=""
+          className="border-border size-10 rounded-md border object-cover"
+        />
+      ) : (
+        <div className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-md">
+          <ImageOff className="size-4" />
+        </div>
+      ),
+  },
   { accessorKey: "name", header: "Name" },
   {
     id: "occupancy",
