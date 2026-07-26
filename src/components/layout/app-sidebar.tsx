@@ -8,6 +8,7 @@ import {
   ClipboardList,
   DoorOpen,
   LayoutDashboard,
+  Settings,
   Tags,
   Users,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const NAV: NavItem[] = [
   { title: "Rooms", href: "/rooms", icon: DoorOpen },
   { title: "Room Types", href: "/room-types", icon: Tags, adminOnly: true },
   { title: "Staff", href: "/users", icon: Users, adminOnly: true },
+  { title: "Settings", href: "/settings", icon: Settings, adminOnly: true },
 ];
 
 export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {

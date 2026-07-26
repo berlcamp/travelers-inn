@@ -352,6 +352,27 @@ export type Database = {
           },
         ]
       }
+      settings: {
+        Row: {
+          is_public: boolean
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          is_public?: boolean
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          is_public?: boolean
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
