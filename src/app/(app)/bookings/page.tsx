@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Plus } from "lucide-react";
+import { Plus, ShieldAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth/guards";
-import { listBookings } from "@/features/bookings/repository";
+import { listBookings, countPendingVerification } from "@/features/bookings/repository";
 import { listActiveRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,11 @@ export const metadata: Metadata = { title: "Bookings" };
 
 export default async function BookingsPage() {
   await requireRole(["admin", "front_desk"]);
-  const [bookings, roomTypes] = await Promise.all([listBookings(), listActiveRoomTypes()]);
+  const [bookings, roomTypes, pendingCount] = await Promise.all([
+    listBookings(),
+    listActiveRoomTypes(),
+    countPendingVerification(),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -32,6 +36,15 @@ export default async function BookingsPage() {
           ) : null
         }
       />
+      {pendingCount > 0 ? (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+          <ShieldAlert className="size-4 shrink-0 text-amber-600" />
+          <span>
+            <strong>{pendingCount}</strong> booking{pendingCount === 1 ? "" : "s"} awaiting payment
+            verification. Open one to review the proof and confirm.
+          </span>
+        </div>
+      ) : null}
       <BookingsTable bookings={bookings} />
     </div>
   );

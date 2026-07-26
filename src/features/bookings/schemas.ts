@@ -18,6 +18,7 @@ export type BookingFormValues = z.input<typeof bookingSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;
 
 export const BOOKING_STATUSES = [
+  "pending_verification",
   "confirmed",
   "checked_in",
   "checked_out",
@@ -27,6 +28,7 @@ export const BOOKING_STATUSES = [
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
+  pending_verification: "For verification",
   confirmed: "Confirmed",
   checked_in: "Checked in",
   checked_out: "Checked out",

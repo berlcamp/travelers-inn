@@ -89,6 +89,16 @@ export async function listAvailableRooms(
   }));
 }
 
+// Drives the "N awaiting verification" prompt on the bookings page.
+export async function countPendingVerification(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending_verification");
+  return count ?? 0;
+}
+
 export async function getBookingWithPayments(id: string): Promise<BookingDetail | null> {
   const booking = await getBooking(id);
   if (!booking) return null;

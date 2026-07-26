@@ -37,8 +37,13 @@ export type DashboardData = {
   occupancy7d: TrendPoint[];
 };
 
-const ACTIVE = ["confirmed", "checked_in"];
-const OCCUPYING = ["confirmed", "checked_in", "checked_out"];
+// A pending_verification booking already holds its room (guest paid the
+// deposit, room is reserved for them) and still owes a balance, so it counts
+// toward tonight's/each night's occupancy and the outstanding total. It does
+// NOT count as a finalised "confirmed" arrival — arrivalsToday below stays
+// scoped to "confirmed" only.
+const ACTIVE = ["pending_verification", "confirmed", "checked_in"];
+const OCCUPYING = ["pending_verification", "confirmed", "checked_in", "checked_out"];
 const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "short" });
 
 function startOfDay(d: Date): Date {

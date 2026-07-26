@@ -24,8 +24,15 @@ export type CalendarData = {
   rows: CalendarRow[];
 };
 
-// Bookings that count as occupying a room on the calendar.
-const ACTIVE: BookingStatus[] = ["confirmed", "checked_in", "checked_out"];
+// Bookings that count as occupying a room on the calendar. A pending_verification
+// booking already holds its room (the DB exclusion constraint blocks a second
+// booking over the same window), so it must render as occupied too.
+const ACTIVE: BookingStatus[] = [
+  "pending_verification",
+  "confirmed",
+  "checked_in",
+  "checked_out",
+];
 
 const weekdayFmt = new Intl.DateTimeFormat("en-PH", { weekday: "short" });
 const dayFmt = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short" });

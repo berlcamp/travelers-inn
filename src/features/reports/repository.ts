@@ -16,7 +16,9 @@ export async function getDashboardData(): Promise<DashboardData> {
       .select(
         "id, room_id, status, period, quoted_total, guest_name, room:rooms(label), room_type:room_types(name)"
       )
-      .in("status", ["confirmed", "checked_in", "checked_out"]),
+      // pending_verification bookings already hold a room and owe a balance,
+      // so computeDashboard needs them in the pool too (see reports.ts).
+      .in("status", ["pending_verification", "confirmed", "checked_in", "checked_out"]),
     supabase.from("payments").select("amount, created_at, booking_id").gte("created_at", since.toISOString()),
   ]);
 

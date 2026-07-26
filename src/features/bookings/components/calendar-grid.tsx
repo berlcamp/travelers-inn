@@ -9,6 +9,8 @@ function cellClasses(cell: CalendarCell): string {
       return "bg-emerald-500/25 dark:bg-emerald-400/25";
     case "checked_out":
       return "bg-muted-foreground/15";
+    case "pending_verification":
+      return "bg-amber-500/20 dark:bg-amber-400/20";
     default: // confirmed
       return "bg-primary/20";
   }
