@@ -107,13 +107,42 @@ export async function createPortalBookingWithProof(
     const { deposit_percent } = await getPortalPaymentInfo();
     const deposit = depositFor(Number(row.quoted_total), deposit_percent);
 
-    await admin.from("booking_proofs").insert({
+    const { error: proofError } = await admin.from("booking_proofs").insert({
       booking_id: row.id,
       method: parsed.method,
       reference_no: parsed.reference_no,
       declared_amount: deposit,
       storage_path: path,
     });
+
+    // The booking is already committed and holding the room, and the file is
+    // already in storage — a failure here must NOT fail the action (that would
+    // either show the guest a false error or invite a duplicate submission on
+    // top of a reservation that already exists). Instead leave a reconciliation
+    // trail: everything needed to hand-link the orphaned object back to this
+    // booking (storage bucket + path, declared method/reference/amount) goes
+    // into the audit log and the server console, since the row itself is what
+    // failed to write.
+    if (proofError) {
+      console.error("[portal] booking_proofs insert failed", {
+        bookingId: row.id,
+        storagePath: path,
+        error: proofError,
+      });
+      await logAudit({
+        action: "booking.portal_proof_insert_failed",
+        entity: "booking",
+        entityId: row.id,
+        diff: {
+          bucket: PROOF_BUCKET,
+          storage_path: path,
+          method: parsed.method,
+          reference_no: parsed.reference_no,
+          declared_amount: deposit,
+          db_error: proofError.message,
+        },
+      });
+    }
 
     await logAudit({
       action: "booking.portal_create_pending",
