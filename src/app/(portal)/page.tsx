@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Clock, MapPin, ShieldCheck } from "lucide-react";
 import { SearchBar } from "@/features/portal/components/search-bar";
 import { RoomTypeCard } from "@/features/portal/components/room-type-card";
+import { FindUs } from "@/features/portal/components/find-us";
 import { listPortalAvailability } from "@/features/portal/repository";
+import { getPublicSettings } from "@/features/settings/repository";
 
 export const metadata: Metadata = {
   title: "Book your stay",
@@ -35,7 +37,10 @@ export default async function PortalHome({
   const searched = Boolean(sp.checkIn && sp.checkOut);
 
   const win = searched ? { checkIn: sp.checkIn!, checkOut: sp.checkOut! } : defaultWindow();
-  const options = await listPortalAvailability(localToISO(win.checkIn), localToISO(win.checkOut));
+  const [options, settings] = await Promise.all([
+    listPortalAvailability(localToISO(win.checkIn), localToISO(win.checkOut)),
+    getPublicSettings(),
+  ]);
 
   return (
     <div>
@@ -126,6 +131,12 @@ export default async function PortalHome({
           </div>
         )}
       </section>
+
+      <FindUs
+        address={settings.inn_address}
+        lat={settings.inn_map_lat}
+        lng={settings.inn_map_lng}
+      />
     </div>
   );
 }

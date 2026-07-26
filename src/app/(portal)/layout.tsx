@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Fraunces } from "next/font/google";
 import { BedDouble, ArrowUpRight } from "lucide-react";
+import { getPublicSettings } from "@/features/settings/repository";
+import { isSet } from "@/features/settings/schemas";
 
 // A characterful soft-serif for the portal's display type — gives the public
 // site its own editorial, hospitality voice, distinct from the staff tools.
@@ -11,7 +13,8 @@ const fraunces = Fraunces({
   style: ["normal", "italic"],
 });
 
-export default function PortalLayout({ children }: { children: React.ReactNode }) {
+export default async function PortalLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getPublicSettings();
   return (
     <div
       className={`${fraunces.variable} force-light bg-background text-foreground flex min-h-svh flex-col`}
@@ -57,6 +60,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 Bañares Traveler&apos;s Inn
               </p>
               <p className="text-muted-foreground text-sm">A warm welcome, any hour of the day.</p>
+              {isSet(settings.inn_address) ? (
+                <p className="text-muted-foreground mt-1 text-sm">{settings.inn_address}</p>
+              ) : null}
             </div>
           </div>
           <p className="text-muted-foreground text-xs">
