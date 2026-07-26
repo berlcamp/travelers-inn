@@ -162,6 +162,41 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          guest_name: string | null
+          id: string
+          rating: number
+          room_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          guest_name?: string | null
+          id?: string
+          rating: number
+          room_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          guest_name?: string | null
+          id?: string
+          rating?: number
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -516,6 +551,28 @@ export type Database = {
       }
       fn_is_active_user: { Args: never; Returns: boolean }
       fn_is_admin: { Args: never; Returns: boolean }
+      fn_submit_feedback: {
+        Args: {
+          p_comment?: string
+          p_guest_name?: string
+          p_rating: number
+          p_room_id: string
+        }
+        Returns: {
+          comment: string | null
+          created_at: string
+          guest_name: string | null
+          id: string
+          rating: number
+          room_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "feedback"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       gen_reference_code: { Args: never; Returns: string }
     }
     Enums: {
