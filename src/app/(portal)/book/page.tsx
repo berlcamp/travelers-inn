@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PortalBookingForm } from "@/features/portal/components/portal-booking-form";
-import { RoomVisual } from "@/features/portal/components/room-visual";
+import { RoomGallery } from "@/features/portal/components/room-gallery";
 import {
   getPortalPaymentInfo,
   getRoomTypePublic,
@@ -67,7 +67,9 @@ export default async function BookPage({
       <div className="grid gap-8 md:grid-cols-[1fr_1.1fr]">
         {/* Summary */}
         <div className="border-border bg-card flex flex-col overflow-hidden rounded-2xl border">
-          <RoomVisual name={option.name} imageUrl={option.imageUrl} className="h-40" />
+          <div className="p-3 pb-0">
+            <RoomGallery name={option.name} photos={option.photos} />
+          </div>
           <div className="flex flex-col gap-4 p-6">
             <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
               {option.name}
