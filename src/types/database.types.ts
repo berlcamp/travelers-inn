@@ -39,6 +39,44 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_proofs: {
+        Row: {
+          booking_id: string
+          created_at: string
+          declared_amount: number
+          id: string
+          method: Database["booking"]["Enums"]["payment_method"]
+          reference_no: string | null
+          storage_path: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          declared_amount: number
+          id?: string
+          method: Database["booking"]["Enums"]["payment_method"]
+          reference_no?: string | null
+          storage_path: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          declared_amount?: number
+          id?: string
+          method?: Database["booking"]["Enums"]["payment_method"]
+          reference_no?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_proofs_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           created_at: string
@@ -443,6 +481,7 @@ export type Database = {
           p_rate_tier_id: string
           p_room_type_id: string
           p_source: Database["booking"]["Enums"]["booking_source"]
+          p_status?: Database["booking"]["Enums"]["booking_status"]
         }
         Returns: {
           created_at: string
@@ -487,6 +526,7 @@ export type Database = {
         | "checked_out"
         | "cancelled"
         | "no_show"
+        | "pending_verification"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       payment_method: "cash" | "gcash" | "card" | "bank_transfer" | "other"
       payment_status: "unpaid" | "partial" | "paid"
@@ -627,6 +667,7 @@ export const Constants = {
         "checked_out",
         "cancelled",
         "no_show",
+        "pending_verification",
       ],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       payment_method: ["cash", "gcash", "card", "bank_transfer", "other"],
