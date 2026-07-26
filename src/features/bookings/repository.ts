@@ -61,11 +61,28 @@ export async function listPayments(bookingId: string): Promise<Payment[]> {
   return data ?? [];
 }
 
+export type ProofRow = Database["booking"]["Tables"]["booking_proofs"]["Row"];
+
+// Latest proof on file for a booking (a guest could in theory upload more than
+// once server-side, so take the most recent).
+export async function getProof(bookingId: string): Promise<ProofRow | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("booking_proofs")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export type BookingDetail = {
   booking: BookingRow;
   payments: Payment[];
   paid: number;
   availableRooms: { id: string; label: string }[];
+  proof: ProofRow | null;
 };
 
 // Rooms of the booking's type that are free in its window, ignoring the booking
@@ -104,8 +121,11 @@ export async function getBookingWithPayments(id: string): Promise<BookingDetail 
   if (!booking) return null;
   const payments = await listPayments(id);
   const availableRooms =
-    booking.status === "confirmed" || booking.status === "checked_in"
+    booking.status === "pending_verification" ||
+    booking.status === "confirmed" ||
+    booking.status === "checked_in"
       ? await listAvailableRooms(booking.room_type_id, booking.checkIn, booking.checkOut, booking.id)
       : [];
-  return { booking, payments, paid: sumPaid(payments), availableRooms };
+  const proof = booking.status === "pending_verification" ? await getProof(id) : null;
+  return { booking, payments, paid: sumPaid(payments), availableRooms, proof };
 }

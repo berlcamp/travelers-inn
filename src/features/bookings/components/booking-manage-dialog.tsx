@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
 import { RecordPaymentForm } from "./record-payment-form";
 import { ReassignRoomSelect } from "./reassign-room-select";
+import { VerificationPanel } from "./verification-panel";
 import {
   loadBookingDetail,
   checkIn,
@@ -123,7 +124,9 @@ export function BookingManageDialog({
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground text-xs">Assigned room</span>
               {detail.availableRooms.length > 0 &&
-              (status === "confirmed" || status === "checked_in") ? (
+              (status === "pending_verification" ||
+                status === "confirmed" ||
+                status === "checked_in") ? (
                 <ReassignRoomSelect
                   bookingId={b.id}
                   currentRoomId={b.room_id}
@@ -134,6 +137,10 @@ export function BookingManageDialog({
                 <span className="font-medium">Room {b.room?.label ?? "—"}</span>
               )}
             </div>
+
+            {status === "pending_verification" ? (
+              <VerificationPanel bookingId={b.id} proof={detail.proof} onDone={refresh} />
+            ) : null}
 
             {/* Lifecycle actions */}
             <div className="flex flex-wrap gap-2">
