@@ -118,6 +118,15 @@ async function main() {
     });
     const rejectId = one(created).id;
 
+    // Self-contained: prove the room was actually held before we free it,
+    // otherwise the post-cancellation count of 1 would be true regardless.
+    const { data: heldCount } = await b.rpc("fn_count_available", {
+      p_room_type_id: type.id,
+      p_check_in: W2[0],
+      p_check_out: W2[1],
+    });
+    assert.equal(heldCount, 0, "the room should be held while the booking is pending");
+
     await b.from("bookings").update({ status: "cancelled" }).eq("id", rejectId);
 
     const { data: count } = await b.rpc("fn_count_available", {
@@ -163,6 +172,86 @@ async function main() {
       .select("id")
       .eq("booking_id", pendingId);
     assert.equal(orphans.length, 0);
+  });
+
+  await test("the no_overlap constraint itself rejects a direct overlapping insert, bypassing fn_create_booking's pre-check", async () => {
+    // Every assertion above goes through fn_create_booking, whose own
+    // application-level NOT EXISTS pre-check would already stop an
+    // overlapping insert before the raw GiST exclusion constraint is ever
+    // reached. Insert straight into booking.bookings to prove the widened
+    // constraint (WHERE status in (...'pending_verification'...)) enforces
+    // the guarantee on its own, independent of that pre-check.
+    const W4 = ["2027-01-10T14:00:00Z", "2027-01-12T12:00:00Z"];
+    const { data: created, error: createErr } = await b.rpc("fn_create_booking", {
+      p_guest_name: "Constraint Guard",
+      p_guest_phone: "09170000003",
+      p_guest_email: "",
+      p_room_type_id: type.id,
+      p_rate_tier_id: tier.id,
+      p_guest_count: 2,
+      p_check_in: W4[0],
+      p_check_out: W4[1],
+      p_source: "portal",
+      p_notes: "",
+      p_status: "pending_verification",
+    });
+    assert.equal(createErr, null);
+    const holder = one(created);
+
+    const { error } = await b.from("bookings").insert({
+      guest_name: "Direct Insert Bypass",
+      room_type_id: type.id,
+      room_id: holder.room_id,
+      rate_tier_id: tier.id,
+      guest_count: 2,
+      period: `[${W4[0]},${W4[1]})`,
+      status: "confirmed",
+      source: "staff",
+      quoted_total: 1000,
+    });
+
+    assert.ok(error, "expected the exclusion constraint to reject a direct overlapping insert");
+    assert.equal(
+      error.code,
+      "23P01",
+      `expected SQLSTATE 23P01 (exclusion_violation) from constraint "no_overlap", got ${error.code}: ${error.message}`,
+    );
+  });
+
+  await test("fn_available_rooms returns no rows for a window held by a pending booking, and the room again once cancelled", async () => {
+    const W5 = ["2027-02-10T14:00:00Z", "2027-02-12T12:00:00Z"];
+    const { data: created, error: createErr } = await b.rpc("fn_create_booking", {
+      p_guest_name: "Available Rooms Guard",
+      p_guest_phone: "09170000004",
+      p_guest_email: "",
+      p_room_type_id: type.id,
+      p_rate_tier_id: tier.id,
+      p_guest_count: 2,
+      p_check_in: W5[0],
+      p_check_out: W5[1],
+      p_source: "portal",
+      p_notes: "",
+      p_status: "pending_verification",
+    });
+    assert.equal(createErr, null);
+    const heldId = one(created).id;
+
+    const { data: heldRooms, error: heldErr } = await b.rpc("fn_available_rooms", {
+      p_room_type_id: type.id,
+      p_check_in: W5[0],
+      p_check_out: W5[1],
+    });
+    assert.equal(heldErr, null);
+    assert.equal(heldRooms.length, 0, "the sole room should be held while pending verification");
+
+    await b.from("bookings").update({ status: "cancelled" }).eq("id", heldId);
+
+    const { data: freedRooms } = await b.rpc("fn_available_rooms", {
+      p_room_type_id: type.id,
+      p_check_in: W5[0],
+      p_check_out: W5[1],
+    });
+    assert.equal(freedRooms.length, 1, "the room should reappear once the pending booking is cancelled");
   });
 
   console.log(`\n${passed} passed`);
