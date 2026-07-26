@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, Tags } from "lucide-react";
+import { Plus, QrCode, Tags } from "lucide-react";
 import { requireUser, hasRole } from "@/lib/auth/guards";
 import { listRoomsWithType, listRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
@@ -23,16 +23,21 @@ export default async function RoomsPage() {
         title="Rooms"
         description="Physical rooms and their housekeeping status."
         actions={
-          isAdmin && activeTypes.length > 0 ? (
-            <RoomFormDialog
-              roomTypes={activeTypes}
-              trigger={
-                <Button>
-                  <Plus className="size-4" /> Add room
-                </Button>
-              }
-            />
-          ) : null
+          <div className="flex gap-2">
+            <Button variant="outline" nativeButton={false} render={<Link href="/rooms/qr" />}>
+              <QrCode className="size-4" /> QR codes
+            </Button>
+            {isAdmin && activeTypes.length > 0 ? (
+              <RoomFormDialog
+                roomTypes={activeTypes}
+                trigger={
+                  <Button>
+                    <Plus className="size-4" /> Add room
+                  </Button>
+                }
+              />
+            ) : null}
+          </div>
         }
       />
 

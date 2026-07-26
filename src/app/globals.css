@@ -160,3 +160,15 @@
   --ring: oklch(0.5 0.07 185);
   color-scheme: light;
 }
+
+@media print {
+  /* The QR sheet prints on its own — hide app chrome and force A4 margins. */
+  [data-slot="sidebar"],
+  [data-slot="sidebar-wrapper"] > header {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 // The variable names are load-bearing: globals.css maps --font-sans/--font-mono
@@ -18,14 +19,8 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
-// Canonical public URL used ONLY for share-card metadata (og:url / og:image).
-// Deliberately hardcoded rather than read from NEXT_PUBLIC_APP_URL: that env
-// var is pointed at the Supabase project in production, which would make social
-// crawlers fetch og-couple.jpg from a host that 404s (no thumbnail on Facebook).
-const siteUrl = "https://bti.kerisoftware.com";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Bañares Traveler's Inn",
     template: "%s · Bañares Traveler's Inn",
@@ -35,7 +30,7 @@ export const metadata: Metadata = {
   // copy rather than the internal system description.
   openGraph: {
     type: "website",
-    url: siteUrl,
+    url: SITE_URL,
     siteName: "Bañares Traveler's Inn",
     title: "Bañares Traveler's Inn",
     description:
