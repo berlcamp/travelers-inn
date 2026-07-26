@@ -85,9 +85,14 @@ Plans: `docs/superpowers/plans/`
   look (Fraunces display font, gradient room visuals). Search availability →
   room cards with prices → book with contact details → **auto-confirmed** with a
   reference code. `createPortalBooking` (source `portal`) runs server-side via
-  the admin client (fn stays off the anon grant) with future-date/max-stay
-  guards; `listPortalAvailability` computes per-type availability + price. 2
-  portal DB tests (27 total). Portal booking appears in staff `/bookings` unpaid.
+  the admin client with future-date/max-stay guards; `listPortalAvailability`
+  computes per-type availability + price. 2 portal DB tests (27 total). Portal
+  booking appears in staff `/bookings` unpaid. **Correction (see the deposits
+  milestone below): "fn stays off the anon grant" was never actually true at
+  this point** — `fn_create_booking` carried a live `anon` EXECUTE grant via
+  migration 1's `alter default privileges` until migration
+  `20260726000600` explicitly revoked it. Auto-confirm is also since GONE —
+  portal bookings now require a verified deposit; see below.
 - **M6 Reports & Dashboard — DONE**: the placeholder dashboard now shows real
   figures — arrivals/departures today, in-house, tonight's occupancy %, revenue
   today, outstanding balance, and 7-day revenue & occupancy trend bars. Metrics
@@ -112,3 +117,50 @@ Plans: `docs/superpowers/plans/`
   hard-deletes — bookings FK-reference tiers). Portal & walk-in both pick
   tier + guests with live pricing. Tests: engine (10), rooms (9), front-desk (7),
   portal (2), reports (7), pricing unit (5) = 40 total.
+- **Deposits, staff verification, feedback QR codes, multi-photo rooms — DONE**
+  (migrations `20260726000100`–`20260726000600`): a public no-login portal
+  booking is no longer auto-confirmed. It now costs a deposit
+  (`booking.settings`, admin-editable — GCash/bank details, `deposit_percent`,
+  inn address/coordinates for the map; `is_public` rows are anon-readable, the
+  rest staff-only) that the guest pays off-platform and uploads proof for
+  (`booking.booking_proofs`, private, staff-read only). The booking is created
+  as `pending_verification` — a new `booking_status` value that **holds the
+  room**: it's in the `no_overlap` GiST exclusion constraint alongside
+  `confirmed`/`checked_in` (a paid guest can never lose the room to a later
+  booker), and every availability function (`fn_count_available`,
+  `fn_available_rooms`) was widened to match. `fn_create_booking` gained a
+  trailing `p_status` parameter (default `confirmed`, portal passes
+  `pending_verification`) — signature is now `(name, phone, email,
+  room_type_id, rate_tier_id, guest_count, check_in, check_out, source, notes,
+  status)`. Proof files land in the **private** `travelers-inn-payment-proofs`
+  bucket (staff read via signed URL; the room-photo bucket stays public — two
+  different trust levels, two different buckets). Staff verify/reject via a
+  panel in the booking manage dialog (`features/bookings/verification-actions.ts`,
+  `components/verification-panel.tsx`). Guest feedback: `booking.feedback` has
+  **no anon policy at all** — every insert goes through
+  `fn_submit_feedback` (`SECURITY DEFINER`, service_role only), reached by a
+  printed per-room QR code (`/rooms/qr` renders one card per room; guests land
+  on public `/feedback/[roomId]`). Room types can now carry multiple photos
+  (`booking.room_type_photos`, public-read, admin-write); `room_types.image_url`
+  is kept as the cover and stays synced to the lowest-`sort_order` photo, so
+  everything that already read `image_url` (portal cards, OG metadata, the
+  admin thumbnail) needed no changes. Security hardening: migration
+  `20260726000600` explicitly revokes `anon`/`public` EXECUTE on the five
+  SECURITY DEFINER functions that don't belong to anon (`fn_create_booking`,
+  `fn_count_available`, `fn_available_rooms`, `fn_claim_invitation`,
+  `fn_submit_feedback`) — migration 1's `alter default privileges ... grant
+  all on routines to anon` had been silently handing every new/changed
+  function a live anon EXECUTE grant, which is how `fn_create_booking`
+  reacquired it when this branch added `p_status`. **Read that migration's
+  comments before adding any new `booking.*` function**: a schema-scoped
+  `alter default privileges ... revoke` does NOT reliably stop this — Postgres
+  grants EXECUTE to `PUBLIC` (which `anon` inherits) unconditionally at
+  `CREATE FUNCTION` time, and a schema-scoped revoke cannot override that
+  built-in default (confirmed by testing on this stack; a database-wide revoke
+  would work but reaches every schema the migrating role touches on this
+  SHARED project, so it isn't used). The only thing that actually works: every
+  new SECURITY DEFINER function needs its own explicit `revoke execute ... from
+  public, anon;` right after `create function`, same as the five here. New
+  test files: `verification.test.mjs` (9), `feedback.test.mjs` (8),
+  `deposit.test.ts` (7 unit tests for `depositFor()`); `rooms.test.mjs` grew
+  for the multi-photo gallery. **69 total** (`npm run test:db`).
