@@ -4,7 +4,11 @@ import { ArrowLeft, CalendarDays, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PortalBookingForm } from "@/features/portal/components/portal-booking-form";
 import { RoomVisual } from "@/features/portal/components/room-visual";
-import { getRoomTypePublic, listPortalAvailability } from "@/features/portal/repository";
+import {
+  getPortalPaymentInfo,
+  getRoomTypePublic,
+  listPortalAvailability,
+} from "@/features/portal/repository";
 import { peso } from "@/features/bookings/pricing";
 
 export const metadata: Metadata = { title: "Complete your booking" };
@@ -45,6 +49,7 @@ export default async function BookPage({
     return <Unavailable message="That room could not be found. Let's find you another." />;
   }
 
+  const payment = await getPortalPaymentInfo();
   const stayLabel = `${fmtDate(sp.checkIn)} → ${fmtDate(sp.checkOut)}`;
 
   return (
@@ -108,6 +113,7 @@ export default async function BookPage({
             roomTypeName={option.name}
             checkIn={sp.checkIn}
             checkOut={sp.checkOut}
+            payment={payment}
           />
         </div>
       </div>

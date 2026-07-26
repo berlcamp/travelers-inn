@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPublicSettings } from "@/features/settings/repository";
 import type { RoomType, RateTier, RoomTypeWithTiers } from "@/features/rooms/repository";
 
 export type PortalTier = Pick<RateTier, "id" | "label" | "kind" | "duration_hours" | "price">;
@@ -98,3 +99,33 @@ export async function listPortalAvailability(
 }
 
 export type { RoomType };
+
+// Private storage bucket for deposit proofs (screenshots/PDFs). Not a "use
+// server" export — actions.ts can only export async functions there — but
+// this is the one place both the portal action and a future staff
+// verification panel can share the bucket name from.
+export const PROOF_BUCKET = "travelers-inn-payment-proofs";
+
+export type PortalPaymentInfo = {
+  gcash_name: string;
+  gcash_number: string;
+  bank_name: string;
+  bank_account_name: string;
+  bank_account_number: string;
+  deposit_percent: number;
+};
+
+// Payment details shown on the booking page. Falls back to 50% if the setting
+// is blank or unparseable so the deposit step never renders a NaN.
+export async function getPortalPaymentInfo(): Promise<PortalPaymentInfo> {
+  const s = await getPublicSettings();
+  const pct = Number(s.deposit_percent);
+  return {
+    gcash_name: s.gcash_name,
+    gcash_number: s.gcash_number,
+    bank_name: s.bank_name,
+    bank_account_name: s.bank_account_name,
+    bank_account_number: s.bank_account_number,
+    deposit_percent: Number.isFinite(pct) && pct > 0 ? pct : 50,
+  };
+}

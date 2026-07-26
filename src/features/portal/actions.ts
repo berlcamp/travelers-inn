@@ -4,18 +4,47 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
-import { portalBookingSchema } from "./schemas";
+import { portalBookingWithProofSchema } from "./schemas";
+import { getPortalPaymentInfo, PROOF_BUCKET } from "./repository";
+import { depositFor } from "@/features/bookings/deposit";
 
 const MAX_NIGHTS = 30;
+const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_PROOF_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
 
-// Public (no-login) portal booking. Runs entirely server-side through the admin
-// client so fn_create_booking stays off the anon grant; every mutation passes
-// through this one validated path. Bookings auto-confirm when a room is free.
-export async function createPortalBooking(
-  input: unknown
-): Promise<ActionResult<{ reference_code: string }>> {
+// Public (no-login) portal booking with a deposit proof. Runs entirely
+// server-side through the admin client so fn_create_booking stays off the anon
+// grant. The booking is created as 'pending_verification' — it HOLDS the room
+// but is not confirmed until staff inspect the proof.
+export async function createPortalBookingWithProof(
+  formData: FormData
+): Promise<ActionResult<{ reference_code: string; deposit: number }>> {
   try {
-    const parsed = portalBookingSchema.parse(input);
+    const file = formData.get("proof");
+    if (!(file instanceof File) || file.size === 0) {
+      return fail("Please attach a screenshot or PDF of your payment.");
+    }
+    if (file.size > MAX_PROOF_BYTES) return fail("The file must be 5 MB or smaller.");
+    const ext = ALLOWED_PROOF_TYPES[file.type];
+    if (!ext) return fail("Attach a JPEG, PNG, WebP, or PDF.");
+
+    const parsed = portalBookingWithProofSchema.parse({
+      guest_name: formData.get("guest_name"),
+      guest_phone: formData.get("guest_phone"),
+      guest_email: formData.get("guest_email") ?? "",
+      room_type_id: formData.get("room_type_id"),
+      rate_tier_id: formData.get("rate_tier_id"),
+      guest_count: formData.get("guest_count"),
+      check_in: formData.get("check_in"),
+      check_out: formData.get("check_out") ?? "",
+      method: formData.get("method"),
+      reference_no: formData.get("reference_no"),
+    });
 
     const checkIn = new Date(parsed.check_in);
     if (Number.isNaN(checkIn.getTime())) return fail("Please choose a valid date.");
@@ -37,6 +66,14 @@ export async function createPortalBooking(
     }
 
     const admin = createAdminClient();
+
+    // Upload FIRST: a storage failure must never leave a booking without proof.
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await admin.storage
+      .from(PROOF_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) return fail("We couldn't upload your proof of payment. Please try again.");
+
     const { data, error } = await admin.rpc("fn_create_booking", {
       p_guest_name: parsed.guest_name,
       p_guest_phone: parsed.guest_phone,
@@ -48,25 +85,46 @@ export async function createPortalBooking(
       p_check_out: checkOutISO,
       p_source: "portal",
       p_notes: "",
+      p_status: "pending_verification",
     });
-    if (error) return fail(error.message);
+    if (error) {
+      await admin.storage.from(PROOF_BUCKET).remove([path]); // don't orphan the object
+      return fail(error.message);
+    }
 
     const row = (Array.isArray(data) ? data[0] : data) as {
       id: string;
       reference_code: string;
+      quoted_total: string | number;
     } | null;
-    if (!row) return fail("We couldn't complete your booking. Please try again.");
+    if (!row) {
+      await admin.storage.from(PROOF_BUCKET).remove([path]);
+      return fail("We couldn't complete your booking. Please try again.");
+    }
+
+    // Recomputed server-side from the authoritative total — never trusted from
+    // the client, which only ever displayed this number.
+    const { deposit_percent } = await getPortalPaymentInfo();
+    const deposit = depositFor(Number(row.quoted_total), deposit_percent);
+
+    await admin.from("booking_proofs").insert({
+      booking_id: row.id,
+      method: parsed.method,
+      reference_no: parsed.reference_no,
+      declared_amount: deposit,
+      storage_path: path,
+    });
 
     await logAudit({
-      action: "booking.portal_create",
+      action: "booking.portal_create_pending",
       entity: "booking",
       entityId: row.id,
-      diff: { source: "portal", room_type_id: parsed.room_type_id },
+      diff: { source: "portal", room_type_id: parsed.room_type_id, deposit },
     });
     revalidatePath("/");
     revalidatePath("/bookings");
     revalidatePath("/calendar");
-    return ok({ reference_code: row.reference_code });
+    return ok({ reference_code: row.reference_code, deposit });
   } catch (err) {
     return toActionError(err);
   }

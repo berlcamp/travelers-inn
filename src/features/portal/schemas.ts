@@ -15,3 +15,17 @@ export const portalBookingSchema = z.object({
 });
 export type PortalBookingFormValues = z.input<typeof portalBookingSchema>;
 export type PortalBookingInput = z.infer<typeof portalBookingSchema>;
+
+// The payment step. The file itself is validated in the action (FormData), not
+// here — Zod runs on the server where File is available but awkward to type.
+export const portalProofSchema = z.object({
+  method: z.enum(["gcash", "bank_transfer"]),
+  reference_no: z.string().trim().min(3, "Enter the reference number").max(80),
+});
+
+// Booking + proof, as sent by the portal form.
+export const portalBookingWithProofSchema = portalBookingSchema.extend({
+  method: portalProofSchema.shape.method,
+  reference_no: portalProofSchema.shape.reference_no,
+});
+export type PortalBookingWithProofInput = z.infer<typeof portalBookingWithProofSchema>;
