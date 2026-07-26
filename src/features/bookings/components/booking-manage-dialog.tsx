@@ -210,7 +210,10 @@ export function BookingManageDialog({
                 </ul>
               ) : null}
 
-              {balance > 0 && status !== "cancelled" && status !== "no_show" ? (
+              {balance > 0 &&
+              status !== "cancelled" &&
+              status !== "no_show" &&
+              status !== "pending_verification" ? (
                 <RecordPaymentForm bookingId={b.id} balance={balance} onDone={refresh} />
               ) : null}
             </div>

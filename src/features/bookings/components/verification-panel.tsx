@@ -124,6 +124,11 @@ export function VerificationPanel({
         />
       </div>
 
+      <Input
+        placeholder="Reason (shown in the booking notes)"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      />
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -144,11 +149,6 @@ export function VerificationPanel({
           }
         />
       </div>
-      <Input
-        placeholder="Reason (shown in the booking notes)"
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-      />
     </div>
   );
 }

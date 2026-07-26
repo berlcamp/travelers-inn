@@ -87,6 +87,22 @@ export async function recordPayment(input: unknown): Promise<ActionResult<{ id: 
     const parsed = paymentSchema.parse(input);
     const supabase = await createClient();
 
+    // A booking awaiting deposit verification must be confirmed or rejected
+    // through the verification panel (verification-actions.ts), which
+    // records the payment itself as part of that transition. Recording a
+    // payment here would leave the booking stuck pending_verification with
+    // money attached, or double-record it if staff also use the panel.
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("status")
+      .eq("id", parsed.booking_id)
+      .maybeSingle();
+    if (booking?.status === "pending_verification") {
+      return fail(
+        "This booking is awaiting deposit verification. Use the verify panel to confirm or reject it — that records the payment for you."
+      );
+    }
+
     const { data, error } = await supabase
       .from("payments")
       .insert({
