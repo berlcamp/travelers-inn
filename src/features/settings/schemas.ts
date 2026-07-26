@@ -29,7 +29,12 @@ export const settingsSchema = z.object({
   bank_name: z.string().trim().max(120),
   bank_account_name: z.string().trim().max(120),
   bank_account_number: z.string().trim().max(60),
-  deposit_percent: z.coerce.number().min(0, "Must be ≥ 0").max(100, "Must be ≤ 100"),
+  // Floor is 1, not 0: this feature is deposit-gated portal booking with
+  // staff verification end to end (proof upload, pending_verification status,
+  // the staff verify queue). 0% would mean "no deposit," which none of that
+  // machinery is built to skip — see features/portal/repository.ts
+  // getPortalPaymentInfo for the matching floor on the read side.
+  deposit_percent: z.coerce.number().min(1, "Must be at least 1%").max(100, "Must be ≤ 100"),
   inn_address: z.string().trim().max(300),
   inn_map_lat: z.string().trim().max(40),
   inn_map_lng: z.string().trim().max(40),

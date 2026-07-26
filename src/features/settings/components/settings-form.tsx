@@ -46,7 +46,7 @@ export function SettingsForm({ settings }: { settings: SettingsMap }) {
           label="Deposit percent"
           description="Portion of the total a portal guest pays up front."
           type="number"
-          min={0}
+          min={1}
           max={100}
         />
       </section>

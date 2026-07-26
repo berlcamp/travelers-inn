@@ -119,7 +119,12 @@ export type PortalPaymentInfo = {
 };
 
 // Payment details shown on the booking page. Falls back to 50% if the setting
-// is blank or unparseable so the deposit step never renders a NaN.
+// is blank or unparseable so the deposit step never renders a NaN. This is
+// not a "0 means no deposit" path: the settings form/schema floor
+// deposit_percent at 1, since the whole portal flow (proof upload,
+// pending_verification, the staff verify queue) has no "skip the deposit"
+// mode — so a stored 0 can only mean missing/corrupt data, never deliberate
+// admin intent, and 50% is the right fallback.
 export async function getPortalPaymentInfo(): Promise<PortalPaymentInfo> {
   const s = await getPublicSettings();
   const pct = Number(s.deposit_percent);
