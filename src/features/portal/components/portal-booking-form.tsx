@@ -157,9 +157,9 @@ export function PortalBookingForm({
           </div>
         </div>
         <p className="text-muted-foreground text-sm">
-          Your room is held. We&apos;ve received your {peso.format(confirmed.deposit)} deposit and
-          will confirm by text once we&apos;ve checked it — usually within a few hours. Settle the
-          balance at the front desk on arrival.
+          Your room is held. We&apos;ve received your proof of the {peso.format(confirmed.deposit)}{" "}
+          deposit and will confirm by text once we&apos;ve checked it — usually within a few hours.
+          Settle the balance at the front desk on arrival.
         </p>
         <Button nativeButton={false} render={<Link href="/" />} variant="outline">
           Book another stay

@@ -70,8 +70,8 @@ export default async function PortalHome({
             <span className="text-primary italic">whenever</span> you travel.
           </h1>
           <p className="text-muted-foreground mt-6 max-w-xl text-lg leading-relaxed">
-            Nightly stays and short day-use rooms in the heart of town. Check availability, book in
-            seconds — and pay at the front desk when you arrive.
+            Nightly stays and short day-use rooms in the heart of town. Check availability, reserve
+            with a small deposit, and settle the rest at the front desk when you arrive.
           </p>
 
           <div className="mt-9 max-w-3xl">
@@ -81,8 +81,8 @@ export default async function PortalHome({
           <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
             {[
               { icon: Clock, label: "24-hour front desk" },
-              { icon: ShieldCheck, label: "Instant confirmation" },
-              { icon: MapPin, label: "Pay on arrival" },
+              { icon: ShieldCheck, label: "Reserve with a small deposit" },
+              { icon: MapPin, label: "Balance on arrival" },
             ].map(({ icon: Icon, label }) => (
               <span key={label} className="text-foreground/80 inline-flex items-center gap-2">
                 <span className="flex size-7 items-center justify-center rounded-full bg-[oklch(0.42_0.07_185)]/8 text-primary">
