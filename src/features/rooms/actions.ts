@@ -137,6 +137,17 @@ type PhotoInput = z.infer<typeof roomTypeSchema>["photos"][number];
 // anywhere in the surviving `photos` array are removed. Backfilled rows carry
 // storage_path = "" (no object exists for them), so they're filtered out by
 // the non-empty check and `remove()` is never called with an empty key.
+//
+// Insert-then-delete (not delete-then-insert): there's no unique constraint
+// on this table, so the new rows can be inserted while the old ones still
+// exist. If the insert fails, the old rows — and the room_types.image_url the
+// caller already wrote just before calling this — are still backed by real
+// photo rows instead of the type being left with a cover pointing at zero
+// photos. The old rows are then deleted by the ids captured *before* the
+// insert, so the delete can't touch rows the insert just created. For the
+// width of this function a reader can see both the old and new rows at once
+// (never neither) — the same momentary duplication `syncRateTiers` accepts
+// for the same reason, and no worse than an ordinary two-statement write.
 async function syncPhotos(
   supabase: SupabaseClient,
   roomTypeId: string,
@@ -144,15 +155,9 @@ async function syncPhotos(
 ): Promise<string | null> {
   const { data: existing, error: fetchErr } = await supabase
     .from("room_type_photos")
-    .select("storage_path")
+    .select("id, storage_path")
     .eq("room_type_id", roomTypeId);
   if (fetchErr) return fetchErr.message;
-
-  const { error: delError } = await supabase
-    .from("room_type_photos")
-    .delete()
-    .eq("room_type_id", roomTypeId);
-  if (delError) return delError.message;
 
   if (photos.length > 0) {
     const { error } = await supabase.from("room_type_photos").insert(
@@ -164,6 +169,15 @@ async function syncPhotos(
       }))
     );
     if (error) return error.message;
+  }
+
+  const existingIds = (existing ?? []).map((p) => p.id);
+  if (existingIds.length > 0) {
+    const { error: delError } = await supabase
+      .from("room_type_photos")
+      .delete()
+      .in("id", existingIds);
+    if (delError) return delError.message;
   }
 
   const keptPaths = new Set(photos.map((p) => p.storage_path).filter(Boolean));
