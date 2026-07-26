@@ -3,8 +3,18 @@
 --
 -- Guests scan a QR in their room and submit a rating. The table has NO anon
 -- policy: submission goes only through fn_submit_feedback (SECURITY DEFINER),
--- called from a server action. That keeps the table unreachable from the
--- browser, so it can't be scraped or spammed by direct REST calls.
+-- called from a server action via the admin (service_role) client. That keeps
+-- the table unreachable from the browser, so it can't be scraped or spammed
+-- by direct REST calls.
+--
+-- That guarantee doesn't hold on its own: migration 1's
+-- `alter default privileges in schema booking grant all on routines to anon,
+-- authenticated, service_role` hands every new function a live EXECUTE grant
+-- for the public anon key, which would let anyone call fn_submit_feedback
+-- straight from a browser with `supabase.rpc(...)`, no server action
+-- involved. This migration explicitly revokes that default grant and hands
+-- EXECUTE only to service_role, the role the future server action actually
+-- runs as.
 -- ============================================================
 
 create table if not exists booking.feedback (
@@ -52,3 +62,10 @@ begin
   return v_row;
 end;
 $$;
+
+-- Undo migration 1's blanket default-privilege grant for this function: only
+-- the admin (service_role) client the future feedback server action uses may
+-- call it. anon and authenticated (signed-in staff have no reason to submit
+-- guest feedback on a guest's behalf) are both revoked.
+revoke execute on function booking.fn_submit_feedback(uuid, int, text, text) from public, anon, authenticated;
+grant execute on function booking.fn_submit_feedback(uuid, int, text, text) to service_role;
