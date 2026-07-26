@@ -13,11 +13,12 @@ export type AvailabilityOption = {
   max_occupancy: number;
   excess_person_rate: number;
   tiers: PortalTier[];
+  photos: { url: string }[];
   available: number;
   fromPrice: number; // cheapest tier, shown as a "from" teaser
 };
 
-const TYPE_SELECT = "*, rate_tiers(*)";
+const TYPE_SELECT = "*, rate_tiers(*), room_type_photos(*)";
 
 // Portal reads go through the admin client (server-only) so fn_count_available
 // stays off the anon grant list. Room types themselves are public-readable.
@@ -48,6 +49,7 @@ function withActiveTiers(t: RoomTypeWithTiers): RoomTypeWithTiers {
     rate_tiers: [...(t.rate_tiers ?? [])]
       .filter((r) => r.is_active)
       .sort((a, b) => a.sort_order - b.sort_order),
+    room_type_photos: [...(t.room_type_photos ?? [])].sort((a, b) => a.sort_order - b.sort_order),
   };
 }
 
@@ -69,6 +71,7 @@ function toOption(t: RoomTypeWithTiers, available: number): AvailabilityOption {
     max_occupancy: t.max_occupancy,
     excess_person_rate: Number(t.excess_person_rate),
     tiers,
+    photos: (t.room_type_photos ?? []).map((p) => ({ url: p.url })),
     available,
     fromPrice,
   };
