@@ -162,9 +162,13 @@
 }
 
 @media print {
-  /* The QR sheet prints on its own — hide app chrome and force A4 margins. */
+  /* The QR sheet prints on its own — hide app chrome and force A4 margins.
+     AppHeader's <header> is a direct child of SidebarInset's <main
+     data-slot="sidebar-inset"> (see src/app/(app)/layout.tsx and
+     src/components/ui/sidebar.tsx), not of the outer sidebar-wrapper, so the
+     selector targets that ancestor instead. */
   [data-slot="sidebar"],
-  [data-slot="sidebar-wrapper"] > header {
+  [data-slot="sidebar-inset"] > header {
     display: none !important;
   }
   @page {
