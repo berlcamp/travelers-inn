@@ -18,7 +18,13 @@ export function RoomGallery({
   const [active, setActive] = useState(0);
 
   if (photos.length === 0) {
-    return <RoomVisual name={name} className={className ?? "h-56"} />;
+    // Matches the rounded-xl on the photo path below (the ".bg-muted
+    // ...rounded-xl" image wrapper) — this used to sit flush inside the
+    // card's own overflow-hidden rounded-2xl, but now renders inside a
+    // padded wrapper (p-3 pb-0 in book/page.tsx), so it needs its own
+    // rounding or it shows a sharp-cornered block. Seed data ships no
+    // photos, so this is the fallback every room type actually hits.
+    return <RoomVisual name={name} className={className ?? "h-56 rounded-xl"} />;
   }
 
   const current = photos[Math.min(active, photos.length - 1)];
