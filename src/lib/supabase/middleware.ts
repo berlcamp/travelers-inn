@@ -3,9 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database.types";
 
 // Paths reachable without a staff session. The public booking portal lives at
-// "/", "/search" and "/book" (added in M5); "/login" and "/auth" are the staff
-// sign-in surfaces.
-const PUBLIC_PATHS = ["/login", "/auth", "/", "/search", "/book"];
+// "/", "/search", "/book" (added in M5) and "/feedback" (per-room guest
+// feedback via printed QR code); "/login" and "/auth" are the staff sign-in
+// surfaces. Note "/feedback" (portal, public) and "/feedbacks" (staff list,
+// under (app)) are distinct routes — isPublicPath below only matches on an
+// exact segment boundary, so this entry does not also expose the staff page.
+const PUBLIC_PATHS = ["/login", "/auth", "/", "/search", "/book", "/feedback"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) =>
