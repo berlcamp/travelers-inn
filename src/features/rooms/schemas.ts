@@ -34,6 +34,15 @@ export const rateTierSchema = z
 export type RateTierFormValues = z.input<typeof rateTierSchema>;
 export type RateTierInput = z.infer<typeof rateTierSchema>;
 
+// One uploaded gallery image. Order in the array IS the display order; the
+// first is the cover, mirrored onto room_types.image_url on save.
+export const roomTypePhotoSchema = z.object({
+  id: z.string().uuid().optional(),
+  url: z.string().url(),
+  storage_path: z.string().default(""),
+});
+export type RoomTypePhotoValues = z.input<typeof roomTypePhotoSchema>;
+
 export const roomTypeSchema = z
   .object({
     id: z.string().uuid().optional(),
@@ -44,6 +53,7 @@ export const roomTypeSchema = z
     max_occupancy: z.coerce.number().int().min(1, "At least 1").max(50),
     excess_person_rate: z.coerce.number().min(0, "Must be ≥ 0"),
     tiers: z.array(rateTierSchema).min(1, "Add at least one rate tier"),
+    photos: z.array(roomTypePhotoSchema).default([]),
     is_active: z.boolean().default(true),
   })
   .refine((t) => t.max_occupancy >= t.base_occupancy, {

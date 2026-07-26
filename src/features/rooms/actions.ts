@@ -19,7 +19,10 @@ export async function saveRoomType(input: unknown): Promise<ActionResult<{ id: s
     const row = {
       name: parsed.name,
       description: parsed.description || null,
-      image_url: parsed.image_url || null,
+      // The cover mirrors the first gallery photo so existing single-image
+      // readers (portal cards, OG metadata) keep working unchanged. Removing
+      // every photo clears the cover rather than leaving a stale image_url.
+      image_url: parsed.photos[0]?.url ?? null,
       base_occupancy: parsed.base_occupancy,
       max_occupancy: parsed.max_occupancy,
       excess_person_rate: parsed.excess_person_rate,
@@ -51,6 +54,9 @@ export async function saveRoomType(input: unknown): Promise<ActionResult<{ id: s
     // deactivated rather than deleted; kept tiers are upserted with their order.
     const tierError = await syncRateTiers(supabase, id, parsed.tiers);
     if (tierError) return fail(tierError);
+
+    const photoError = await syncPhotos(supabase, id, parsed.photos);
+    if (photoError) return fail(photoError);
 
     await logAudit({
       actorId: user.id,
@@ -117,6 +123,66 @@ async function syncRateTiers(
   return null;
 }
 
+type PhotoInput = z.infer<typeof roomTypeSchema>["photos"][number];
+
+// Photos have no FK dependents (unlike rate tiers, which bookings reference),
+// so removed ones are hard-deleted — matching the design spec, which calls for
+// deleting "row and storage object both". Array position becomes sort_order.
+//
+// Deleting the storage object alongside the row is the riskier half (a bug
+// here could orphan a photo still referenced elsewhere, or misfire on a
+// backfilled row), but leaving objects in place leaks the bucket forever on
+// every reorder-and-remove edit, which is worse over the product's lifetime.
+// The mitigation: only paths that (a) are non-empty and (b) do not appear
+// anywhere in the surviving `photos` array are removed. Backfilled rows carry
+// storage_path = "" (no object exists for them), so they're filtered out by
+// the non-empty check and `remove()` is never called with an empty key.
+async function syncPhotos(
+  supabase: SupabaseClient,
+  roomTypeId: string,
+  photos: PhotoInput[]
+): Promise<string | null> {
+  const { data: existing, error: fetchErr } = await supabase
+    .from("room_type_photos")
+    .select("storage_path")
+    .eq("room_type_id", roomTypeId);
+  if (fetchErr) return fetchErr.message;
+
+  const { error: delError } = await supabase
+    .from("room_type_photos")
+    .delete()
+    .eq("room_type_id", roomTypeId);
+  if (delError) return delError.message;
+
+  if (photos.length > 0) {
+    const { error } = await supabase.from("room_type_photos").insert(
+      photos.map((p, i) => ({
+        room_type_id: roomTypeId,
+        storage_path: p.storage_path || "",
+        url: p.url,
+        sort_order: i,
+      }))
+    );
+    if (error) return error.message;
+  }
+
+  const keptPaths = new Set(photos.map((p) => p.storage_path).filter(Boolean));
+  const orphanedPaths = (existing ?? [])
+    .map((p) => p.storage_path)
+    .filter((path): path is string => Boolean(path) && !keptPaths.has(path));
+  if (orphanedPaths.length > 0) {
+    // Best-effort: the DB rows are already synced at this point, so a storage
+    // hiccup here shouldn't fail the whole save — it just leaves an orphaned
+    // object for manual cleanup, which is the same outcome as never removing
+    // objects at all, just narrower in scope.
+    const { error: removeError } = await supabase.storage.from(PHOTO_BUCKET).remove(orphanedPaths);
+    if (removeError) {
+      console.error("room_type_photos: failed to remove storage objects", removeError.message);
+    }
+  }
+  return null;
+}
+
 export async function toggleRoomTypeActive(
   id: string,
   active: boolean
@@ -150,12 +216,15 @@ const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 };
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 
-// Uploads a single cover photo and returns its public URL. Kept separate from
-// saveRoomType so that action stays a clean Zod-parsed JSON mutation; the URL
-// rides along in the form's `image_url` field on save.
+// Uploads a single photo and returns its public URL plus the storage object's
+// path. Kept separate from saveRoomType so that action stays a clean
+// Zod-parsed JSON mutation; the result rides along in the form's `photos`
+// field array on save. Returning `storage_path` (not just the URL) lets
+// syncPhotos hard-delete the underlying object when a photo is removed from
+// the gallery — see the comment there for why that matters.
 export async function uploadRoomTypePhoto(
   formData: FormData
-): Promise<ActionResult<{ url: string }>> {
+): Promise<ActionResult<{ url: string; storage_path: string }>> {
   try {
     await requireRole(["admin"]);
     const file = formData.get("file");
@@ -172,7 +241,7 @@ export async function uploadRoomTypePhoto(
     if (error) return fail(error.message);
 
     const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-    return ok({ url: data.publicUrl });
+    return ok({ url: data.publicUrl, storage_path: path });
   } catch (err) {
     return toActionError(err);
   }
