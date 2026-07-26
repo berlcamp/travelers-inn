@@ -348,6 +348,41 @@ export type Database = {
           },
         ]
       }
+      room_type_photos: {
+        Row: {
+          created_at: string
+          id: string
+          room_type_id: string
+          sort_order: number
+          storage_path: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          room_type_id: string
+          sort_order?: number
+          storage_path: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          room_type_id?: string
+          sort_order?: number
+          storage_path?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_type_photos_room_type_id_fkey"
+            columns: ["room_type_id"]
+            isOneToOne: false
+            referencedRelation: "room_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_types: {
         Row: {
           base_occupancy: number
