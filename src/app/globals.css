@@ -14,6 +14,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
+  --color-sidebar-hover: var(--sidebar-hover);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -48,79 +50,90 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Travelers Inn — a warm hospitality identity: a soft parchment canvas, white
-   cards floating on it, a deep teal-green primary (calm, trustworthy) and a
-   warm amber accent (welcome, brass keys). The sidebar is a cool slate/charcoal
-   in both themes, with the amber accent picking out the active nav item. */
+/* Staff app palette — shared with bayugan-tracks so the two internal tools read
+   as one system:
+     page  #F0F2F5   surface #FFFFFF   text #050505   link/primary #1877F2
+   Secondary text is deliberately darker than Facebook's own #65676B (~4.8:1)
+   so the 12px uppercase table headers stay legible.
+
+   The public booking portal keeps its own warm editorial identity — it pins
+   every token it needs in `.force-light` below, so nothing here reaches it. */
 :root {
-  --background: oklch(0.985 0.008 85);
-  --foreground: oklch(0.22 0.02 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.02 60);
+  --background: oklch(0.958 0.003 265); /* #F0F2F5 */
+  --foreground: oklch(0.145 0 0); /* #050505 */
+  --card: oklch(1 0 0); /* #FFFFFF */
+  --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.02 60);
-  --primary: oklch(0.42 0.07 185);
-  --primary-foreground: oklch(0.98 0.01 85);
-  --secondary: oklch(0.95 0.015 85);
-  --secondary-foreground: oklch(0.3 0.03 70);
-  --muted: oklch(0.95 0.012 85);
-  --muted-foreground: oklch(0.52 0.02 70);
-  --accent: oklch(0.78 0.13 65);
-  --accent-foreground: oklch(0.28 0.04 60);
-  --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.9 0.012 80);
-  --input: oklch(0.9 0.012 80);
-  --ring: oklch(0.5 0.07 185);
-  --chart-1: oklch(0.5 0.09 185);
-  --chart-2: oklch(0.7 0.13 65);
-  --chart-3: oklch(0.6 0.11 145);
-  --chart-4: oklch(0.55 0.22 25);
-  --chart-5: oklch(0.58 0.13 300);
+  --popover-foreground: oklch(0.145 0 0);
+  /* FB blue, hover shade — 4.7:1 as link text AND with a white label on a
+     filled button. */
+  --primary: oklch(0.565 0.212 258);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.925 0.005 265); /* #E4E6EB — FB grey button */
+  --secondary-foreground: oklch(0.145 0 0);
+  --muted: oklch(0.958 0.003 265); /* #F0F2F5 */
+  --muted-foreground: oklch(0.5 0.006 265); /* ~6:1 on white */
+  --accent: oklch(0.955 0.022 250); /* #E7F3FF — FB blue tint */
+  --accent-foreground: oklch(0.52 0.2 258); /* readable blue on the tint */
+  --destructive: oklch(0.55 0.215 26); /* FB red, darkened for text */
+  --border: oklch(0.855 0.005 265); /* #CED0D4 */
+  --input: oklch(0.855 0.005 265);
+  --ring: oklch(0.565 0.212 258);
+  --chart-1: oklch(0.595 0.212 258); /* blue   */
+  --chart-2: oklch(0.615 0.153 148); /* green  */
+  --chart-3: oklch(0.795 0.152 82); /* amber  */
+  --chart-4: oklch(0.617 0.226 25); /* red    */
+  --chart-5: oklch(0.6 0.2 295); /* purple */
   --radius: 0.5rem;
-  --sidebar: oklch(0.27 0.02 250);
-  --sidebar-foreground: oklch(0.93 0.008 250);
-  --sidebar-primary: oklch(0.78 0.13 65);
-  --sidebar-primary-foreground: oklch(0.24 0.015 250);
-  --sidebar-accent: oklch(0.34 0.02 250);
-  --sidebar-accent-foreground: oklch(0.96 0.006 250);
-  --sidebar-border: oklch(0.36 0.02 250);
-  --sidebar-ring: oklch(0.78 0.13 65);
+  /* Sidebar — dark chrome in BOTH themes. It carries its own foreground scale
+     because the light-theme greys above would be illegible on it. */
+  --sidebar: oklch(0.205 0.003 265); /* #18191A */
+  --sidebar-foreground: oklch(0.925 0.005 265); /* #E4E6EB */
+  --sidebar-muted-foreground: oklch(0.735 0.005 265);
+  --sidebar-primary: oklch(0.655 0.19 258); /* #2D88FF */
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.345 0.055 258); /* active — blue tint */
+  --sidebar-accent-foreground: oklch(0.82 0.13 258);
+  --sidebar-hover: oklch(0.295 0.004 265); /* hover — raised surface */
+  --sidebar-border: oklch(0.335 0.003 265); /* #3E4042 */
+  --sidebar-ring: oklch(0.655 0.19 258);
 }
 
-/* Dark mode keeps the teal/amber identity: the canvas drops below the sidebar
-   so the card layer still reads as raised, and primary lightens to stay legible. */
+/* Dark: page #18191A, surface #242526, text #E4E6EB. */
 .dark {
-  --background: oklch(0.18 0.015 70);
-  --foreground: oklch(0.95 0.008 85);
-  --card: oklch(0.23 0.02 65);
-  --card-foreground: oklch(0.95 0.008 85);
-  --popover: oklch(0.23 0.02 65);
-  --popover-foreground: oklch(0.95 0.008 85);
-  --primary: oklch(0.68 0.1 185);
-  --primary-foreground: oklch(0.18 0.015 70);
-  --secondary: oklch(0.3 0.02 65);
-  --secondary-foreground: oklch(0.95 0.008 85);
-  --muted: oklch(0.3 0.02 65);
-  --muted-foreground: oklch(0.72 0.02 75);
-  --accent: oklch(0.78 0.13 65);
-  --accent-foreground: oklch(0.22 0.02 60);
-  --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.78 0.13 65);
-  --chart-1: oklch(0.68 0.11 185);
-  --chart-2: oklch(0.75 0.14 65);
-  --chart-3: oklch(0.68 0.12 145);
-  --chart-4: oklch(0.65 0.2 25);
-  --chart-5: oklch(0.66 0.14 300);
-  --sidebar: oklch(0.24 0.02 250);
-  --sidebar-foreground: oklch(0.93 0.008 250);
-  --sidebar-primary: oklch(0.78 0.13 65);
-  --sidebar-primary-foreground: oklch(0.24 0.015 250);
-  --sidebar-accent: oklch(0.31 0.02 250);
-  --sidebar-accent-foreground: oklch(0.96 0.006 250);
-  --sidebar-border: oklch(0.33 0.02 250);
-  --sidebar-ring: oklch(0.78 0.13 65);
+  --background: oklch(0.205 0.003 265);
+  --foreground: oklch(0.925 0.005 265);
+  --card: oklch(0.265 0.003 265); /* #242526 */
+  --card-foreground: oklch(0.925 0.005 265);
+  --popover: oklch(0.29 0.003 265); /* #303031 */
+  --popover-foreground: oklch(0.925 0.005 265);
+  --primary: oklch(0.655 0.19 258); /* #2D88FF */
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.32 0.003 265); /* #3A3B3C */
+  --secondary-foreground: oklch(0.925 0.005 265);
+  --muted: oklch(0.32 0.003 265);
+  --muted-foreground: oklch(0.765 0.005 265); /* #B0B3B8 */
+  --accent: oklch(0.345 0.055 258); /* dark blue tint */
+  --accent-foreground: oklch(0.8 0.13 258);
+  --destructive: oklch(0.66 0.2 25);
+  --border: oklch(0.335 0.003 265); /* #3E4042 */
+  --input: oklch(0.375 0.003 265);
+  --ring: oklch(0.655 0.19 258);
+  --chart-1: oklch(0.655 0.19 258);
+  --chart-2: oklch(0.68 0.15 148);
+  --chart-3: oklch(0.815 0.15 82);
+  --chart-4: oklch(0.66 0.2 25);
+  --chart-5: oklch(0.66 0.19 295);
+  --sidebar: oklch(0.265 0.003 265); /* #242526 — sits above the page */
+  --sidebar-foreground: oklch(0.925 0.005 265);
+  --sidebar-muted-foreground: oklch(0.765 0.005 265);
+  --sidebar-primary: oklch(0.655 0.19 258);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.345 0.055 258);
+  --sidebar-accent-foreground: oklch(0.82 0.13 258);
+  --sidebar-hover: oklch(0.335 0.004 265);
+  --sidebar-border: oklch(0.335 0.003 265);
+  --sidebar-ring: oklch(0.655 0.19 258);
 }
 
 @layer base {
@@ -133,13 +146,39 @@
   html {
     @apply font-sans;
   }
+
+  /* Refined scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.79 0.005 265); /* #BCC0C4 */
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.66 0.006 265);
+  }
+
+  /* Better text selection */
+  ::selection {
+    background: oklch(0.595 0.212 258 / 20%);
+    color: inherit;
+  }
 }
 
 /* Public surfaces (the booking portal + staff login) are always presented on a
    clean white canvas, independent of the staff app's system-driven dark mode.
    Pinning the design tokens here keeps token-based components (Button, Card,
-   borders) light without needing any `dark:` variants in the markup. */
+   borders) light without needing any `dark:` variants in the markup.
+   It also keeps the portal's warm teal/amber identity and its DM Sans body
+   face while the staff app moved to the shared blue palette + Plus Jakarta
+   Sans — the public surface is a different product to a different audience. */
 .force-light {
+  --font-sans: var(--font-dm-sans);
   --background: oklch(1 0 0);
   --foreground: oklch(0.23 0.02 60);
   --card: oklch(1 0 0);
@@ -163,12 +202,12 @@
 
 @media print {
   /* The QR sheet prints on its own — hide app chrome and force A4 margins.
-     AppHeader's <header> is a direct child of SidebarInset's <main
-     data-slot="sidebar-inset"> (see src/app/(app)/layout.tsx and
+     AppHeader's <header> is a direct child of SidebarInset's
+     <div data-sidebar="inset"> (see src/app/(app)/layout.tsx and
      src/components/ui/sidebar.tsx), not of the outer sidebar-wrapper, so the
      selector targets that ancestor instead. */
-  [data-slot="sidebar"],
-  [data-slot="sidebar-inset"] > header {
+  [data-sidebar="sidebar"],
+  [data-sidebar="inset"] > header {
     display: none !important;
   }
   @page {

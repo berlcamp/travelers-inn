@@ -1,7 +1,9 @@
 import type { LucideIcon } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+// A flat tile rather than a Card: the figure is the point, and card padding
+// plus a header row buries it. Same chrome as the table shell so a row of
+// tiles above a list reads as one surface.
 export function StatCard({
   label,
   value,
@@ -16,19 +18,15 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <Card className={cn("py-4", className)}>
-      <CardContent className="flex items-center gap-3 px-4">
-        {Icon ? (
-          <div className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-            <Icon className="size-4" />
-          </div>
-        ) : null}
-        <div className="flex flex-col overflow-hidden">
-          <span className="text-muted-foreground truncate text-xs">{label}</span>
-          <span className="text-xl font-semibold tabular-nums">{value}</span>
-          {hint ? <span className="text-muted-foreground truncate text-xs">{hint}</span> : null}
-        </div>
-      </CardContent>
-    </Card>
+    <div className={cn("border-border/60 bg-card rounded-xl border p-4 shadow-sm", className)}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+          {label}
+        </p>
+        {Icon ? <Icon className="text-muted-foreground/60 size-4 shrink-0" /> : null}
+      </div>
+      <p className="mt-0.5 truncate text-xl leading-tight font-bold tabular-nums">{value}</p>
+      {hint ? <p className="text-muted-foreground mt-0.5 truncate text-xs">{hint}</p> : null}
+    </div>
   );
 }

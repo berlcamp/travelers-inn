@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FormInput } from "@/components/shared/form-fields";
+import { SectionCard } from "@/components/shared/section-card";
 import { saveSettings } from "@/features/settings/actions";
 import {
   settingsSchema,
@@ -37,9 +38,8 @@ export function SettingsForm({ settings }: { settings: SettingsMap }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="flex max-w-2xl flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Deposit</h2>
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex max-w-2xl flex-col gap-5">
+      <SectionCard title="Deposit" contentClassName="flex flex-col gap-3 pt-4">
         <FormInput
           control={form.control}
           name="deposit_percent"
@@ -49,23 +49,20 @@ export function SettingsForm({ settings }: { settings: SettingsMap }) {
           min={1}
           max={100}
         />
-      </section>
+      </SectionCard>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">GCash</h2>
+      <SectionCard title="GCash" contentClassName="flex flex-col gap-3 pt-4">
         <FormInput control={form.control} name="gcash_name" label="Account name" />
         <FormInput control={form.control} name="gcash_number" label="GCash number" />
-      </section>
+      </SectionCard>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Bank transfer</h2>
+      <SectionCard title="Bank transfer" contentClassName="flex flex-col gap-3 pt-4">
         <FormInput control={form.control} name="bank_name" label="Bank name" />
         <FormInput control={form.control} name="bank_account_name" label="Account name" />
         <FormInput control={form.control} name="bank_account_number" label="Account number" />
-      </section>
+      </SectionCard>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Location</h2>
+      <SectionCard title="Location" contentClassName="flex flex-col gap-3 pt-4">
         <FormInput
           control={form.control}
           name="inn_address"
@@ -76,7 +73,7 @@ export function SettingsForm({ settings }: { settings: SettingsMap }) {
           <FormInput control={form.control} name="inn_map_lat" label="Latitude" />
           <FormInput control={form.control} name="inn_map_lng" label="Longitude" />
         </div>
-      </section>
+      </SectionCard>
 
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Saving…" : "Save settings"}

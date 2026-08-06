@@ -14,7 +14,7 @@ export default async function RoomTypesPage() {
   const roomTypes = await listRoomTypes();
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Room Types"
         description="Define the categories of rooms, their occupancy, and rate tiers."

@@ -5,7 +5,7 @@ import { getReportData } from "@/features/reports/repository";
 import { isoDate } from "@/features/reports/analytics";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "@/components/shared/section-card";
 import { TrendBars } from "@/features/reports/components/trend-bars";
 import { ReportRange } from "@/features/reports/components/report-range";
 import { ExportButtons } from "@/features/reports/components/export-buttons";
@@ -50,7 +50,7 @@ export default async function ReportsPage({
   const b = data.bookings;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Reports"
         description={`${fullDate.format(new Date(`${from}T00:00:00`))} – ${fullDate.format(
@@ -63,7 +63,9 @@ export default async function ReportsPage({
 
       {/* ---- Financial ---- */}
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold tracking-tight">Financial</h2>
+        <h2 className="text-muted-foreground text-sm font-semibold tracking-widest uppercase">
+          Financial
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Collected"
@@ -95,59 +97,41 @@ export default async function ReportsPage({
           />
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Collections by day</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TrendBars
-              points={f.daily.map((d) => ({ label: d.label, value: d.value, max: d.max }))}
-              format="peso"
-            />
-          </CardContent>
-        </Card>
+        <SectionCard title="Collections by day">
+          <TrendBars
+            points={f.daily.map((d) => ({ label: d.label, value: d.value, max: d.max }))}
+            format="peso"
+          />
+        </SectionCard>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">By payment mode</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BreakdownTable
-                buckets={f.byMethod}
-                countLabel="Payments"
-                labelOf={(bucket) => METHOD_LABEL(bucket.key)}
-                emptyText="No payments received in this range."
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Collected by staff</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BreakdownTable
-                buckets={f.byStaff}
-                countLabel="Payments"
-                emptyText="No payments received in this range."
-              />
-            </CardContent>
-          </Card>
+          <SectionCard title="By payment mode">
+            <BreakdownTable
+              buckets={f.byMethod}
+              countLabel="Payments"
+              labelOf={(bucket) => METHOD_LABEL(bucket.key)}
+              emptyText="No payments received in this range."
+            />
+          </SectionCard>
+          <SectionCard title="Collected by staff">
+            <BreakdownTable
+              buckets={f.byStaff}
+              countLabel="Payments"
+              emptyText="No payments received in this range."
+            />
+          </SectionCard>
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Payments received</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PaymentsLedger payments={f.payments} />
-          </CardContent>
-        </Card>
+        <SectionCard title="Payments received" contentClassName="px-0 pt-0">
+          <PaymentsLedger payments={f.payments} />
+        </SectionCard>
       </section>
 
       {/* ---- Bookings ---- */}
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold tracking-tight">Bookings</h2>
+        <h2 className="text-muted-foreground text-sm font-semibold tracking-widest uppercase">
+          Bookings
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Bookings taken"
@@ -176,77 +160,52 @@ export default async function ReportsPage({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">By status</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="By status">
+            <BreakdownTable
+              buckets={b.byStatus}
+              countLabel="Bookings"
+              labelOf={(bucket) => STATUS_LABEL(bucket.key)}
+              emptyText="No bookings taken in this range."
+            />
+          </SectionCard>
+          <SectionCard title="By channel">
+            <BreakdownTable
+              buckets={b.bySource}
+              countLabel="Bookings"
+              labelOf={(bucket) => SOURCE_LABEL(bucket.key)}
+              emptyText="No bookings taken in this range."
+            />
+          </SectionCard>
+          <SectionCard title="By room type">
+            <BreakdownTable
+              buckets={b.byRoomType}
+              countLabel="Bookings"
+              emptyText="No bookings taken in this range."
+            />
+          </SectionCard>
+          <SectionCard title="Staff handling" contentClassName="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-muted-foreground text-xs">Bookings taken</span>
               <BreakdownTable
-                buckets={b.byStatus}
-                countLabel="Bookings"
-                labelOf={(bucket) => STATUS_LABEL(bucket.key)}
-                emptyText="No bookings taken in this range."
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">By channel</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BreakdownTable
-                buckets={b.bySource}
-                countLabel="Bookings"
-                labelOf={(bucket) => SOURCE_LABEL(bucket.key)}
-                emptyText="No bookings taken in this range."
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">By room type</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BreakdownTable
-                buckets={b.byRoomType}
+                buckets={b.byStaff}
                 countLabel="Bookings"
                 emptyText="No bookings taken in this range."
               />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Staff handling</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <span className="text-muted-foreground text-xs">Bookings taken</span>
-                <BreakdownTable
-                  buckets={b.byStaff}
-                  countLabel="Bookings"
-                  emptyText="No bookings taken in this range."
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <span className="text-muted-foreground text-xs">Deposits verified</span>
-                <BreakdownTable
-                  buckets={b.verifiedByStaff}
-                  countLabel="Verified"
-                  emptyText="No deposits verified in this range."
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-muted-foreground text-xs">Deposits verified</span>
+              <BreakdownTable
+                buckets={b.verifiedByStaff}
+                countLabel="Verified"
+                emptyText="No deposits verified in this range."
+              />
+            </div>
+          </SectionCard>
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Bookings taken</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BookingsLedger bookings={b.taken} />
-          </CardContent>
-        </Card>
+        <SectionCard title="Bookings taken" contentClassName="px-0 pt-0">
+          <BookingsLedger bookings={b.taken} />
+        </SectionCard>
       </section>
     </div>
   );

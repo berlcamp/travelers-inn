@@ -2,11 +2,16 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/shared/data-table";
+import { DataTable, includesValue } from "@/components/shared/data-table";
 import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
 import { BookingManageDialog } from "./booking-manage-dialog";
 import { peso } from "@/features/bookings/pricing";
-import { type BookingStatus } from "@/features/bookings/schemas";
+import {
+  BOOKING_STATUSES,
+  BOOKING_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+  type BookingStatus,
+} from "@/features/bookings/schemas";
 import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import type { BookingRow } from "@/features/bookings/repository";
 
@@ -115,15 +120,20 @@ const columns: ColumnDef<BookingRow>[] = [
   {
     accessorKey: "status",
     header: "Status",
+    filterFn: includesValue,
     cell: ({ row }) => <BookingStatusBadge status={row.original.status as BookingStatus} />,
   },
   {
     accessorKey: "payment_status",
     header: "Payment",
+    filterFn: includesValue,
     cell: ({ row }) => (
       <PaymentStatusBadge status={row.original.payment_status as "unpaid" | "partial" | "paid"} />
     ),
   },
+  // Filter-only: the channel is already spelled out under "Handled by", so a
+  // column of its own would repeat it. Hidden columns still filter.
+  { accessorKey: "source", header: "Channel", filterFn: includesValue },
   {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
@@ -131,14 +141,34 @@ const columns: ColumnDef<BookingRow>[] = [
   },
 ];
 
+const STATUS_OPTIONS = BOOKING_STATUSES.map((s) => ({
+  value: s,
+  label: BOOKING_STATUS_LABELS[s],
+}));
+
+const PAYMENT_OPTIONS = (["unpaid", "partial", "paid"] as const).map((s) => ({
+  value: s,
+  label: PAYMENT_STATUS_LABELS[s],
+}));
+
+const CHANNEL_OPTIONS = Object.entries(BOOKING_SOURCE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+
 export function BookingsTable({ bookings }: { bookings: BookingRow[] }) {
   return (
     <DataTable
       columns={columns}
       data={bookings}
       searchPlaceholder="Search by guest, ref, room…"
+      filterableColumns={[
+        { id: "status", title: "Status", options: STATUS_OPTIONS },
+        { id: "payment_status", title: "Payment", options: PAYMENT_OPTIONS },
+        { id: "source", title: "Channel", options: CHANNEL_OPTIONS },
+      ]}
+      initialColumnVisibility={{ source: false }}
       emptyMessage="No bookings yet. Create a walk-in to get started."
-      pageSize={12}
     />
   );
 }

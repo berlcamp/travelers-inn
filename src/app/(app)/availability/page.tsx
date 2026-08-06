@@ -77,7 +77,7 @@ export default async function AvailabilityPage({
   );
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Availability"
         description="Answer a walk-in or a phone inquiry: what's free, what it costs, book it on the spot."

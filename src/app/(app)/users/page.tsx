@@ -15,7 +15,7 @@ export default async function UsersPage() {
   const [staff, invitations] = await Promise.all([listStaff(), listInvitations()]);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <PageHeader
         title="Staff"
         description="Who can sign in to the inn's tools, and who's been invited."
@@ -31,13 +31,17 @@ export default async function UsersPage() {
       />
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Members</h2>
+        <h2 className="text-muted-foreground text-sm font-semibold tracking-widest uppercase">
+          Members
+        </h2>
         <StaffTable staff={staff} currentUserId={user.id} />
       </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold">Invitations</h2>
+          <h2 className="text-muted-foreground text-sm font-semibold tracking-widest uppercase">
+            Invitations
+          </h2>
           <p className="text-muted-foreground text-xs">
             An invitation is claimed the first time its Google account signs in — nothing is emailed
             from here.

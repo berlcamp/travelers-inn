@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 import { Star } from "lucide-react";
 import { DataTable } from "@/components/shared/data-table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { FeedbackWithRoom } from "@/features/feedback/repository";
 
@@ -62,14 +68,18 @@ const columns: ColumnDef<FeedbackWithRoom>[] = [
     accessorKey: "comment",
     header: "Comment",
     cell: ({ row }) => (
-      <span className="text-sm">{row.original.comment ?? <span className="text-muted-foreground">—</span>}</span>
+      <span className="text-sm">
+        {row.original.comment ?? <span className="text-muted-foreground">—</span>}
+      </span>
     ),
   },
   {
     accessorKey: "guest_name",
     header: "Guest",
     cell: ({ row }) => (
-      <span className="text-muted-foreground text-sm">{row.original.guest_name ?? "Anonymous"}</span>
+      <span className="text-muted-foreground text-sm">
+        {row.original.guest_name ?? "Anonymous"}
+      </span>
     ),
   },
 ];
@@ -96,34 +106,35 @@ const FILTER_OPTIONS: { value: FilterKey; label: string }[] = [
 export function FeedbacksTable({ feedback }: { feedback: FeedbackWithRoom[] }) {
   const [filter, setFilter] = useState<FilterKey>("all");
 
-  const rows = useMemo(
-    () => feedback.filter((f) => FILTERS[filter](f.rating)),
-    [feedback, filter]
+  const rows = useMemo(() => feedback.filter((f) => FILTERS[filter](f.rating)), [feedback, filter]);
+
+  // The rating filter rides in the table's own toolbar rather than above it, so
+  // search and filter sit on one row like every other list.
+  const ratingFilter = (
+    <Select
+      items={FILTER_OPTIONS}
+      value={filter}
+      onValueChange={(v) => setFilter((v as FilterKey) ?? "all")}
+    >
+      <SelectTrigger className="h-8 w-56">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {FILTER_OPTIONS.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Select
-          items={FILTER_OPTIONS}
-          value={filter}
-          onValueChange={(v) => setFilter((v as FilterKey) ?? "all")}
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FILTER_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
       <DataTable
         columns={columns}
         data={rows}
+        toolbar={ratingFilter}
         searchPlaceholder="Search comments, rooms, guests…"
         emptyMessage="No feedback matches that filter."
       />

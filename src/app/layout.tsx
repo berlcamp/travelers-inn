@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import { DM_Sans, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -7,16 +7,25 @@ import "./globals.css";
 // The variable names are load-bearing: globals.css maps --font-sans/--font-mono
 // straight through, so the family only exists if next/font defines that exact
 // name here.
-const dmSans = DM_Sans({
+//
+// Plus Jakarta Sans is the staff app's face — the same one bayugan-tracks uses,
+// so the two internal tools read as one system. DM Sans stays loaded under its
+// own variable because the public portal keeps it: `.force-light` aliases
+// --font-sans back to --font-dm-sans for that subtree (see globals.css).
+const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -61,7 +70,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${jakartaSans.variable} ${dmSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">

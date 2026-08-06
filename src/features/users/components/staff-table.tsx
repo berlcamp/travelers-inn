@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable } from "@/components/shared/data-table";
+import { DataTable, includesValue } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { setStaffActive, setStaffRole } from "@/features/users/actions";
 import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/features/users/schemas";
@@ -140,6 +140,11 @@ function buildColumns(currentUserId: string): ColumnDef<StaffMember>[] {
     {
       id: "role",
       header: "Role",
+      // Admin outranks the rest, so that's what both the select and the filter
+      // key on — a member with two roles is filed under the one that decides
+      // what they can do.
+      accessorFn: (row) => (row.roles.includes("admin") ? "admin" : (row.roles[0] ?? "none")),
+      filterFn: includesValue,
       // Self is read-only: an admin who demotes themselves mid-session would
       // lose this page (and, if they're the only admin, the inn would too).
       cell: ({ row }) => (
@@ -149,6 +154,7 @@ function buildColumns(currentUserId: string): ColumnDef<StaffMember>[] {
     {
       accessorKey: "is_active",
       header: "Status",
+      filterFn: includesValue,
       cell: ({ row }) =>
         row.original.is_active ? (
           <Badge>Active</Badge>
@@ -191,6 +197,24 @@ export function StaffTable({
       columns={columns}
       data={staff}
       searchPlaceholder="Search staff…"
+      filterableColumns={[
+        {
+          id: "role",
+          title: "Role",
+          options: [
+            ...USER_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })),
+            { value: "none", label: "No role" },
+          ],
+        },
+        {
+          id: "is_active",
+          title: "Status",
+          options: [
+            { value: "true", label: "Active" },
+            { value: "false", label: "Deactivated" },
+          ],
+        },
+      ]}
       emptyMessage="No staff yet."
     />
   );

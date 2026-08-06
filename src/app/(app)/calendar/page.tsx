@@ -26,7 +26,7 @@ export default async function CalendarPage({
   const data = buildCalendar(start ?? "", DAYS, rooms, bookings);
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Calendar"
         description={`Room availability across ${DAYS} days.`}
@@ -40,7 +40,12 @@ export default async function CalendarPage({
             >
               <ChevronLeft />
             </Button>
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/calendar" />}>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/calendar" />}
+            >
               Today
             </Button>
             <Button

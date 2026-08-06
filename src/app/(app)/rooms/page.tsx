@@ -18,7 +18,7 @@ export default async function RoomsPage() {
   const activeTypes = roomTypes.filter((t) => t.is_active);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Rooms"
         description="Physical rooms and their housekeeping status."

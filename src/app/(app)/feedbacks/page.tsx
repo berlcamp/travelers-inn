@@ -15,7 +15,7 @@ export default async function FeedbacksPage() {
   const stats = computeFeedbackStats(feedback);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Guest feedback"
         description="Submitted by guests scanning the QR code in their room."

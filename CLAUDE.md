@@ -237,3 +237,32 @@ Plans: `docs/superpowers/plans/`
   outstanding balance — it was the only remaining way to overpay a booking, and
   an overpayment has no expressible meaning in reports. Deposit-then-balance on
   *portal* bookings is untouched: those are still two payments by design.
+- **Staff-app UI aligned with bayugan-tracks — DONE** (no migration, no server
+  logic): the `(app)` surfaces now share that project's visual system so the two
+  internal tools read as one. `globals.css` swapped the warm teal/parchment
+  tokens for its palette (page `#F0F2F5`, white cards, `#1877F2` primary, a dark
+  sidebar in BOTH themes) and gained `--sidebar-muted-foreground` /
+  `--sidebar-hover`; `--font-sans` is now Plus Jakarta Sans. **The public portal
+  and the login page are deliberately untouched** — both already sit inside
+  `.force-light`, which pins every colour token they use and now also aliases
+  `--font-sans` back to `--font-dm-sans`, so the guest-facing editorial identity
+  (Fraunces + DM Sans + teal/amber) survives a palette change made for staff.
+  `ui/sidebar.tsx` was replaced with that project's leaner implementation
+  (sticky full-height, width-animated, Sheet on mobile, no icon-collapse) —
+  **its slots are `data-sidebar="…"`, not `data-slot=`, which is why the print
+  rules in `globals.css` had to change with it**. The nav is a plain `Link` with
+  an active blue rail, split into front-desk and admin groups. `AppHeader` grew
+  breadcrumbs (`components/layout/breadcrumbs.tsx`, a client component because
+  it reads `usePathname`).
+  The shared `DataTable` was rebuilt around the same table kit — a toolbar
+  (global search + multi-select **faceted filter** chips with live facet counts
+  + Reset), a card-wrapped table with a muted uppercase header row, and a
+  footer with rows-per-page. Faceted filters are multi-select, so every
+  filterable column needs `filterFn: includesValue` (exported from
+  `shared/data-table.tsx`) — TanStack's default is single-value equality and
+  silently matches nothing once a second option is ticked. Wired up on
+  bookings (status / payment / channel — `source` is a **hidden** filter-only
+  column), rooms (type / status) and staff (role / status); feedback's existing
+  rating select moved into the toolbar. The old `serverPagination` prop is
+  gone — nothing used it. New `shared/section-card.tsx` is the ruled panel the
+  dashboard, reports and the settings form now share.

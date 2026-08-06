@@ -10,7 +10,7 @@ import {
 import { requireUser } from "@/lib/auth/guards";
 import { getDashboardData } from "@/features/reports/repository";
 import { StatCard } from "@/components/shared/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "@/components/shared/section-card";
 import { TrendBars } from "@/features/reports/components/trend-bars";
 import { ArrivalsList } from "@/features/reports/components/arrivals-list";
 import { peso } from "@/features/bookings/pricing";
@@ -23,13 +23,15 @@ export default async function DashboardPage() {
   const d = await getDashboardData();
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {firstName}</h1>
+    <div className="flex flex-col gap-6">
+      <div className="space-y-1">
+        <h1 className="text-foreground text-xl leading-tight font-bold tracking-tight">
+          Welcome back, {firstName}
+        </h1>
         <p className="text-muted-foreground text-sm">Here&apos;s the front desk at a glance.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Arrivals today"
           value={d.arrivalsToday.length}
@@ -42,7 +44,12 @@ export default async function DashboardPage() {
           icon={CalendarArrowUp}
           hint="Expected check-outs"
         />
-        <StatCard label="In-house" value={d.inHouse} icon={BedDouble} hint="Guests currently staying" />
+        <StatCard
+          label="In-house"
+          value={d.inHouse}
+          icon={BedDouble}
+          hint="Guests currently staying"
+        />
         <StatCard
           label="Occupancy tonight"
           value={`${d.occupancyPct}%`}
@@ -63,50 +70,38 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Today&apos;s arrivals</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ArrivalsList
-              bookings={d.arrivalsToday}
-              timeField="checkIn"
-              emptyText="No arrivals scheduled today."
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Today&apos;s departures</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ArrivalsList
-              bookings={d.departuresToday}
-              timeField="checkOut"
-              emptyText="No departures scheduled today."
-            />
-          </CardContent>
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard
+          title="Today's arrivals"
+          icon={CalendarArrowDown}
+          aside={`${d.arrivalsToday.length} expected`}
+        >
+          <ArrivalsList
+            bookings={d.arrivalsToday}
+            timeField="checkIn"
+            emptyText="No arrivals scheduled today."
+          />
+        </SectionCard>
+        <SectionCard
+          title="Today's departures"
+          icon={CalendarArrowUp}
+          aside={`${d.departuresToday.length} expected`}
+        >
+          <ArrivalsList
+            bookings={d.departuresToday}
+            timeField="checkOut"
+            emptyText="No departures scheduled today."
+          />
+        </SectionCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Revenue · last 7 days</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TrendBars points={d.revenue7d} format="peso" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Occupancy · last 7 days</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TrendBars points={d.occupancy7d} format="count" />
-          </CardContent>
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard title="Revenue" icon={TrendingUp} aside="last 7 days">
+          <TrendBars points={d.revenue7d} format="peso" />
+        </SectionCard>
+        <SectionCard title="Occupancy" icon={Percent} aside="last 7 days">
+          <TrendBars points={d.occupancy7d} format="count" />
+        </SectionCard>
       </div>
     </div>
   );
