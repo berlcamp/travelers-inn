@@ -266,3 +266,29 @@ Plans: `docs/superpowers/plans/`
   rating select moved into the toolbar. The old `serverPagination` prop is
   gone — nothing used it. New `shared/section-card.tsx` is the ruled panel the
   dashboard, reports and the settings form now share.
+- **User menu + self-service profile — DONE** (migration `20260807000100`).
+  *The bug*: the header's account menu threw on open and drew nothing. Base
+  UI's `Menu.GroupLabel` reads `MenuGroupContext` and **raises** without a
+  `Menu.Group` around it, so `DropdownMenuLabel` outside a `DropdownMenuGroup`
+  takes the whole popup down rather than degrading. Wrap every
+  `DropdownMenuLabel` in a `DropdownMenuGroup`.
+  *The menu* now holds the identity block, **Edit profile** → `/profile`, and
+  Sign out (still `signOut({ scope: "local" })` — this is a SHARED Supabase
+  project).
+  *Editing*: `booking.profiles` still has **no self-update policy**, and that is
+  deliberate — a row-level policy grants the whole ROW, and this row carries
+  `is_active` (the deactivation flag `proxy.ts` enforces; a self-update would
+  let a deactivated user reactivate themselves and undo the staff-management
+  milestone) and `email` (what `fn_claim_invitation` matches an invitation on).
+  Postgres RLS has no column-level `WITH CHECK`, so the write is
+  `booking.fn_update_my_profile(text)` instead: SECURITY DEFINER, gated on
+  `fn_is_active_user()`, writing one column on the row `auth.uid()` names —
+  **there is no id parameter to forge**. It carries the mandatory
+  `revoke execute … from public, anon` (see `20260726000600`). Guard is
+  `requireUser`, not `requireRole`: everyone owns their own name.
+  `revalidatePath("/", "layout")` because the name is drawn in the header on
+  every staff page. Email, photo and role are shown read-only with a line
+  saying where they come from, rather than as three disabled inputs.
+  New `profile.test.mjs` (7) — mostly negative: blank/oversized names refused,
+  `is_active`/`email` unmoved, a direct UPDATE on `profiles` still refused for
+  front desk, and a deactivated user refused. **128 total** (`npm run test:db`).

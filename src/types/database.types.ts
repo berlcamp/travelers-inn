@@ -634,6 +634,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fn_update_my_profile: {
+        Args: { p_full_name: string }
+        Returns: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       gen_reference_code: { Args: never; Returns: string }
     }
     Enums: {

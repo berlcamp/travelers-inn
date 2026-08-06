@@ -1,9 +1,12 @@
-import { ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -68,29 +71,46 @@ export function AppHeader({ user }: { user: HeaderUser }) {
               </button>
             }
           />
-          <DropdownMenuContent align="end" className="min-w-[230px]">
-            <DropdownMenuLabel>
-              <div className="flex items-center gap-3 py-1">
-                <Avatar className="size-9 shrink-0">
-                  {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.fullName} /> : null}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-                    {initials(user.fullName)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-foreground truncate text-sm leading-none font-semibold">
-                    {user.fullName}
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs leading-none font-normal">
-                    {user.email}
-                  </p>
-                  <p className="text-muted-foreground truncate pt-0.5 text-xs leading-none font-normal">
-                    {user.roleLabel}
-                  </p>
+          <DropdownMenuContent align="end" className="min-w-[240px]">
+            {/* The group wrapper is load-bearing, not decoration: Base UI's
+                Menu.GroupLabel reads MenuGroupContext and THROWS without a
+                Menu.Group around it, which takes the whole menu down on open
+                rather than degrading. */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                <div className="flex items-center gap-3 py-1">
+                  <Avatar className="size-9 shrink-0">
+                    {user.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.fullName} />
+                    ) : null}
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                      {initials(user.fullName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-foreground truncate text-sm leading-none font-semibold">
+                      {user.fullName}
+                    </p>
+                    <p className="text-muted-foreground truncate text-xs leading-none font-normal">
+                      {user.email}
+                    </p>
+                    <p className="text-muted-foreground truncate pt-0.5 text-xs leading-none font-normal">
+                      {user.roleLabel}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </DropdownMenuLabel>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
+
+            <DropdownMenuItem render={<Link href="/profile" />}>
+              <User className="size-4" />
+              Edit profile
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
             <SignOutButton />
           </DropdownMenuContent>
         </DropdownMenu>

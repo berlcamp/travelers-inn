@@ -16,6 +16,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   "room-types": "Room Types",
   users: "Staff",
   settings: "Settings",
+  profile: "Profile",
 };
 
 export function Breadcrumbs() {

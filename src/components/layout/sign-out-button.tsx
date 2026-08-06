@@ -17,7 +17,7 @@ export function SignOutButton() {
   }
 
   return (
-    <DropdownMenuItem onClick={handleSignOut}>
+    <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
       <LogOut className="size-4" />
       Sign out
     </DropdownMenuItem>
