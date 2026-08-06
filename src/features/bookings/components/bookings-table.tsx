@@ -7,6 +7,7 @@ import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
 import { BookingManageDialog } from "./booking-manage-dialog";
 import { peso } from "@/features/bookings/pricing";
 import { type BookingStatus } from "@/features/bookings/schemas";
+import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import type { BookingRow } from "@/features/bookings/repository";
 
 const dt = new Intl.DateTimeFormat("en-PH", {
@@ -87,6 +88,29 @@ const columns: ColumnDef<BookingRow>[] = [
     cell: ({ row }) => (
       <span className="tabular-nums">{peso.format(Number(row.original.quoted_total))}</span>
     ),
+  },
+  {
+    id: "handled_by",
+    header: "Handled by",
+    // Searchable by staff name: "which walk-ins did Dana take?" is the whole
+    // point of showing this column. Portal bookings have no creator — the guest
+    // made them — so they show the channel and, once verified, the verifier.
+    accessorFn: (row) =>
+      `${row.createdByName ?? ""} ${row.verifiedByName ?? ""} ${row.source}`.trim(),
+    cell: ({ row }) => {
+      const b = row.original;
+      return (
+        <div className="flex flex-col">
+          <span className="text-sm">
+            {b.createdByName ?? (b.source === "portal" ? "Guest (online)" : "—")}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {BOOKING_SOURCE_LABELS[b.source] ?? b.source}
+            {b.verifiedByName ? ` · verified by ${b.verifiedByName}` : ""}
+          </span>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "status",

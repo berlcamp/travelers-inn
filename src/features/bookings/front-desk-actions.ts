@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
 import { paymentSchema } from "./payment-schema";
+import { peso } from "./pricing";
 import { getBookingWithPayments, type BookingDetail } from "./repository";
 
 function revalidateBookings() {
@@ -94,13 +95,29 @@ export async function recordPayment(input: unknown): Promise<ActionResult<{ id: 
     // money attached, or double-record it if staff also use the panel.
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status")
+      .select("status, quoted_total")
       .eq("id", parsed.booking_id)
       .maybeSingle();
     if (booking?.status === "pending_verification") {
       return fail(
         "This booking is awaiting deposit verification. Use the verify panel to confirm or reject it — that records the payment for you."
       );
+    }
+
+    // Never take more than the booking is worth: an overpayment would inflate
+    // revenue in reports with no way to express it as anything but "paid".
+    // (Walk-ins can't reach this at all — they settle in full at booking.)
+    const { data: existing } = await supabase
+      .from("payments")
+      .select("amount")
+      .eq("booking_id", parsed.booking_id);
+    const alreadyPaid = (existing ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
+    const balance = Number(booking?.quoted_total ?? 0) - alreadyPaid;
+    // numeric(10,2) money — a half-centavo of slack keeps float noise from
+    // rejecting a payment that exactly settles the balance.
+    if (balance <= 0.005) return fail("This booking is already paid in full.");
+    if (parsed.amount - balance > 0.005) {
+      return fail(`That is more than the ${peso.format(balance)} still due on this booking.`);
     }
 
     const { data, error } = await supabase

@@ -5,7 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { BedDouble, CheckCircle2, XCircle } from "lucide-react";
+import { BedDouble, CheckCircle2, Wallet, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,10 @@ import {
   type BookingFormValues,
   type BookingInput,
 } from "@/features/bookings/schemas";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+} from "@/features/bookings/payment-schema";
 import { createBooking, checkAvailability } from "@/features/bookings/actions";
 import { quote, peso, type RateTier } from "@/features/bookings/pricing";
 import type { RoomTypeWithTiers } from "@/features/rooms/repository";
@@ -32,7 +36,16 @@ function localDateTime(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function defaults(): BookingFormValues {
+// What the availability page hands over when staff press "Book" on a result,
+// so the guest never has to be asked for dates twice.
+export type WalkInPrefill = Partial<
+  Pick<
+    BookingFormValues,
+    "room_type_id" | "rate_tier_id" | "guest_count" | "check_in" | "check_out"
+  >
+>;
+
+function defaults(prefill?: WalkInPrefill): BookingFormValues {
   const checkIn = new Date();
   checkIn.setHours(13, 0, 0, 0);
   const checkOut = new Date(checkIn);
@@ -48,6 +61,9 @@ function defaults(): BookingFormValues {
     check_in: localDateTime(checkIn),
     check_out: localDateTime(checkOut),
     notes: "",
+    payment_method: "cash",
+    payment_reference: "",
+    ...prefill,
   };
 }
 
@@ -62,9 +78,11 @@ const dtFmt = new Intl.DateTimeFormat("en-PH", {
 export function WalkInDialog({
   trigger,
   roomTypes,
+  prefill,
 }: {
   trigger: React.ReactElement<Record<string, unknown>>;
   roomTypes: RoomTypeWithTiers[];
+  prefill?: WalkInPrefill;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -74,10 +92,14 @@ export function WalkInDialog({
 
   const form = useForm<BookingFormValues, unknown, BookingInput>({
     resolver: zodResolver(bookingSchema),
-    defaultValues: defaults(),
+    defaultValues: defaults(prefill),
   });
 
   const typeOptions = roomTypes.map((t) => ({ value: t.id, label: t.name }));
+  const methodOptions = PAYMENT_METHODS.map((m) => ({
+    value: m,
+    label: PAYMENT_METHOD_LABELS[m],
+  }));
 
   const [roomTypeId, rateTierId, guestCount, checkIn, checkOut] = useWatch({
     control: form.control,
@@ -130,9 +152,13 @@ export function WalkInDialog({
   const effectiveCheckOut =
     priceQuote && "checkOut" in priceQuote ? priceQuote.checkOut : null;
 
-  // Debounced availability check whenever type/tier/dates/guests change.
+  // Debounced availability check whenever type/tier/dates/guests change, and
+  // only while the dialog is open: the availability page renders one of these
+  // per bookable rate, so a closed dialog must cost nothing. Clearing on close
+  // also stops a reopened dialog from briefly trusting a stale count.
   useEffect(() => {
     let cancelled = false;
+    if (!open) return;
     const outIso = effectiveCheckOut ? localDateTime(effectiveCheckOut) : null;
     const handle = setTimeout(async () => {
       if (!roomTypeId || !checkIn || !outIso) {
@@ -150,9 +176,10 @@ export function WalkInDialog({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [roomTypeId, checkIn, effectiveCheckOut]);
+  }, [open, roomTypeId, checkIn, effectiveCheckOut]);
 
   const priceError = priceQuote && "error" in priceQuote ? priceQuote.error : null;
+  const totalDue = priceQuote && "total" in priceQuote ? priceQuote.total : null;
   const canSubmit = !pending && available != null && available > 0 && !priceError;
 
   function onSubmit(values: BookingInput) {
@@ -161,9 +188,18 @@ export function WalkInDialog({
       const payload = isBlock ? { ...values, check_out: "" } : values;
       const result = await createBooking(payload);
       if (result.ok) {
-        toast.success(`Booked — ${result.data.reference_code}`);
+        const { reference_code, paid, paymentError } = result.data;
+        if (paymentError) {
+          // The room is held but the money isn't on the ledger — say so
+          // plainly; staff finish the payment from the booking's manage dialog.
+          toast.error(
+            `Booked ${reference_code}, but the payment was NOT recorded: ${paymentError}. Record it from the booking.`
+          );
+        } else {
+          toast.success(`Booked ${reference_code} — paid in full (${peso.format(paid)})`);
+        }
         setOpen(false);
-        form.reset(defaults());
+        form.reset(defaults(prefill));
         setAvailable(null);
         router.refresh();
       } else {
@@ -173,7 +209,15 @@ export function WalkInDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // Drop the count on close so a reopened dialog never trusts a stale
+        // one; the effect above re-checks as soon as it is open again.
+        if (!next) setAvailable(null);
+      }}
+    >
       <DialogTrigger render={trigger} />
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
@@ -231,6 +275,39 @@ export function WalkInDialog({
           ) : null}
           <FormTextarea control={form.control} name="notes" label="Notes" rows={2} />
 
+          <div className="flex flex-col gap-3 rounded-lg border p-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Wallet className="text-muted-foreground size-4" />
+              Payment
+              <span className="text-muted-foreground text-xs font-normal">
+                collected in full now
+              </span>
+            </div>
+            {/* No amount field on purpose: a walk-in settles the whole price at
+                the desk, so the action records the booking's own quoted_total —
+                part payments and overpayments aren't possible here. */}
+            <div className="bg-muted/50 flex items-baseline justify-between rounded-md px-3 py-2">
+              <span className="text-muted-foreground text-xs">Amount to collect</span>
+              <span className="text-base font-semibold tabular-nums">
+                {totalDue != null ? peso.format(totalDue) : "—"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormSelect
+                control={form.control}
+                name="payment_method"
+                label="Method"
+                options={methodOptions}
+              />
+              <FormInput
+                control={form.control}
+                name="payment_reference"
+                label="Reference (optional)"
+                placeholder="OR / txn no."
+              />
+            </div>
+          </div>
+
           <SummaryPanel
             checking={checking}
             available={available}
@@ -250,7 +327,7 @@ export function WalkInDialog({
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
             <Button type="submit" disabled={!canSubmit}>
-              {pending ? "Booking…" : "Confirm booking"}
+              {pending ? "Booking…" : "Confirm booking & payment"}
             </Button>
           </DialogFooter>
         </form>

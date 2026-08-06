@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import {
   BedDouble,
   CalendarDays,
+  ChartColumn,
   ClipboardList,
   DoorOpen,
   LayoutDashboard,
   MessageSquareHeart,
+  Search,
   Settings,
   Tags,
   Users,
@@ -34,10 +36,12 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Availability", href: "/availability", icon: Search },
   { title: "Calendar", href: "/calendar", icon: CalendarDays },
   { title: "Bookings", href: "/bookings", icon: ClipboardList },
   { title: "Rooms", href: "/rooms", icon: DoorOpen },
   { title: "Feedback", href: "/feedbacks", icon: MessageSquareHeart },
+  { title: "Reports", href: "/reports", icon: ChartColumn, adminOnly: true },
   { title: "Room Types", href: "/room-types", icon: Tags, adminOnly: true },
   { title: "Staff", href: "/users", icon: Users, adminOnly: true },
   { title: "Settings", href: "/settings", icon: Settings, adminOnly: true },

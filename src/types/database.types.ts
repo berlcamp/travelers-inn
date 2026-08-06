@@ -97,6 +97,8 @@ export type Database = {
           source: Database["booking"]["Enums"]["booking_source"]
           status: Database["booking"]["Enums"]["booking_status"]
           updated_at: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           created_at?: string
@@ -117,6 +119,8 @@ export type Database = {
           source?: Database["booking"]["Enums"]["booking_source"]
           status?: Database["booking"]["Enums"]["booking_status"]
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           created_at?: string
@@ -137,6 +141,8 @@ export type Database = {
           source?: Database["booking"]["Enums"]["booking_source"]
           status?: Database["booking"]["Enums"]["booking_status"]
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -530,6 +536,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fn_booking_trail: {
+        Args: { p_booking_id: string }
+        Returns: {
+          action: string
+          actor_id: string
+          actor_name: string
+          created_at: string
+          diff: Json
+          entry_id: string
+        }[]
+      }
       fn_claim_invitation: { Args: never; Returns: boolean }
       fn_count_available: {
         Args: {
@@ -572,6 +589,8 @@ export type Database = {
           source: Database["booking"]["Enums"]["booking_source"]
           status: Database["booking"]["Enums"]["booking_status"]
           updated_at: string
+          verified_at: string | null
+          verified_by: string | null
         }
         SetofOptions: {
           from: "*"
@@ -586,6 +605,13 @@ export type Database = {
       }
       fn_is_active_user: { Args: never; Returns: boolean }
       fn_is_admin: { Args: never; Returns: boolean }
+      fn_staff_names: {
+        Args: { p_ids: string[] }
+        Returns: {
+          staff_id: string
+          staff_name: string
+        }[]
+      }
       fn_submit_feedback: {
         Args: {
           p_comment?: string

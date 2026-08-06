@@ -60,7 +60,9 @@ export async function confirmBooking(
       .maybeSingle();
     if (!booking) return fail("Booking not found.");
     if (booking.status !== "pending_verification") {
-      return fail("This booking is not awaiting verification — someone may have already handled it.");
+      return fail(
+        "This booking is not awaiting verification — someone may have already handled it."
+      );
     }
 
     const proof = await getProof(bookingId);
@@ -78,9 +80,16 @@ export async function confirmBooking(
       .single();
     if (payError || !payment) return fail(payError?.message ?? "Could not record the payment.");
 
+    // verified_by/verified_at ride along in the same conditional UPDATE as the
+    // status flip, so the attribution is exactly as race-safe as the flip: the
+    // staff member named is by definition the one whose UPDATE matched.
     const { data: updated, error } = await supabase
       .from("bookings")
-      .update({ status: "confirmed" })
+      .update({
+        status: "confirmed",
+        verified_by: user.id,
+        verified_at: new Date().toISOString(),
+      })
       .eq("id", bookingId)
       .eq("status", "pending_verification")
       .select("id")
@@ -131,7 +140,9 @@ export async function rejectBooking(
       .maybeSingle();
     if (!booking) return fail("Booking not found.");
     if (booking.status !== "pending_verification") {
-      return fail("This booking is not awaiting verification — someone may have already handled it.");
+      return fail(
+        "This booking is not awaiting verification — someone may have already handled it."
+      );
     }
 
     const note = `Payment rejected: ${reason || "no reason given"}`;

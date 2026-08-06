@@ -18,6 +18,8 @@ import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
 import { RecordPaymentForm } from "./record-payment-form";
 import { ReassignRoomSelect } from "./reassign-room-select";
 import { VerificationPanel } from "./verification-panel";
+import { ActivityTrail } from "./activity-trail";
+import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import {
   loadBookingDetail,
   checkIn,
@@ -108,7 +110,10 @@ export function BookingManageDialog({
           <div className="flex flex-col gap-4">
             {/* Summary */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Field label="Reference" value={<span className="font-mono text-xs">{b.reference_code}</span>} />
+              <Field
+                label="Reference"
+                value={<span className="font-mono text-xs">{b.reference_code}</span>}
+              />
               <Field label="Room type" value={b.room_type?.name ?? "—"} />
               <Field label="Check-in" value={fmt(b.checkIn)} />
               <Field label="Check-out" value={fmt(b.checkOut)} />
@@ -118,6 +123,24 @@ export function BookingManageDialog({
                 value={`${b.guest_count} guest${b.guest_count === 1 ? "" : "s"}`}
               />
               <Field label="Contact" value={b.guest_phone || b.guest_email || "—"} />
+            </div>
+
+            {/* Staff attribution. A portal booking has no creator — the guest
+                made it — so "Booked by" names the channel instead, and the
+                verifier is the staff member who checked the deposit. A walk-in
+                is confirmed the moment it's taken, by whoever took it. */}
+            <div className="bg-muted/40 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg p-3 text-sm">
+              <Field
+                label={`Booked by · ${BOOKING_SOURCE_LABELS[b.source] ?? b.source}`}
+                value={b.createdByName ?? (b.source === "portal" ? "Guest (online)" : "—")}
+              />
+              <Field label="Taken on" value={fmt(b.created_at)} />
+              {b.verifiedByName || b.verified_at ? (
+                <>
+                  <Field label="Deposit verified by" value={b.verifiedByName ?? "—"} />
+                  <Field label="Verified on" value={b.verified_at ? fmt(b.verified_at) : "—"} />
+                </>
+              ) : null}
             </div>
 
             {/* Assigned room (reassignable when active) */}
@@ -145,12 +168,20 @@ export function BookingManageDialog({
             {/* Lifecycle actions */}
             <div className="flex flex-wrap gap-2">
               {status === "confirmed" ? (
-                <Button size="sm" disabled={pending} onClick={() => runAction(() => checkIn(b.id), "Checked in.")}>
+                <Button
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => runAction(() => checkIn(b.id), "Checked in.")}
+                >
                   <LogIn className="size-4" /> Check in
                 </Button>
               ) : null}
               {status === "checked_in" ? (
-                <Button size="sm" disabled={pending} onClick={() => runAction(() => checkOut(b.id), "Checked out.")}>
+                <Button
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => runAction(() => checkOut(b.id), "Checked out.")}
+                >
                   <LogOut className="size-4" /> Check out
                 </Button>
               ) : null}
@@ -197,14 +228,23 @@ export function BookingManageDialog({
               </div>
 
               {detail.payments.length > 0 ? (
-                <ul className="flex flex-col gap-1 text-xs">
+                <ul className="flex flex-col gap-1.5 text-xs">
                   {detail.payments.map((p) => (
-                    <li key={p.id} className="text-muted-foreground flex justify-between">
-                      <span>
-                        {PAYMENT_METHOD_LABELS[p.method]}
-                        {p.reference ? ` · ${p.reference}` : ""}
+                    <li key={p.id} className="flex justify-between gap-3">
+                      <span className="flex min-w-0 flex-col">
+                        <span className="font-medium">
+                          {PAYMENT_METHOD_LABELS[p.method]}
+                          {p.reference ? (
+                            <span className="text-muted-foreground"> · {p.reference}</span>
+                          ) : null}
+                        </span>
+                        <span className="text-muted-foreground">
+                          Received by {p.recordedByName ?? "—"} · {fmt(p.created_at)}
+                        </span>
                       </span>
-                      <span className="tabular-nums">{peso.format(Number(p.amount))}</span>
+                      <span className="font-medium tabular-nums">
+                        {peso.format(Number(p.amount))}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -216,6 +256,14 @@ export function BookingManageDialog({
               status !== "pending_verification" ? (
                 <RecordPaymentForm bookingId={b.id} balance={balance} onDone={refresh} />
               ) : null}
+            </div>
+
+            <Separator />
+
+            {/* Activity trail */}
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">Activity</span>
+              <ActivityTrail entries={detail.trail} />
             </div>
           </div>
         )}

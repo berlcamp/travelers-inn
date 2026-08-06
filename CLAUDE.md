@@ -164,3 +164,76 @@ Plans: `docs/superpowers/plans/`
   test files: `verification.test.mjs` (9), `feedback.test.mjs` (8),
   `deposit.test.ts` (7 unit tests for `depositFor()`); `rooms.test.mjs` grew
   for the multi-photo gallery. **69 total** (`npm run test:db`).
+- **Staff management page — DONE** (no migration; the tables have been there
+  since M1): the sidebar's admin-only "Staff" item pointed at `/users`, which
+  had never been built — the link 404'd. `features/users/*` +
+  `app/(app)/users/page.tsx` now render the roster (`profiles` joined to
+  `user_roles` in JS — the two tables hang off `auth.users` with no FK between
+  them, so PostgREST can't embed either in the other) and the invitation list.
+  Admin can invite (whitelists an email in `booking.invitations`; **nothing is
+  emailed** — the invitee signs in with Google and `fn_claim_invitation()` does
+  the rest), revoke, change a member's role, and deactivate/reactivate.
+  Inviting an email that already has a live invitation **renews** that row
+  rather than inserting — the partial unique index allows one pending invite
+  per email. Role change replaces the whole role set (insert first, then drop
+  the others, so a member is never momentarily role-less). Every mutation
+  refuses to act on the caller's own row, which is also the lockout guard:
+  only an admin gets this far, so an active admin always survives. Deactivation
+  never deletes (audit logs reference the actor) — `proxy.ts` bounces a
+  deactivated profile to `/login?error=deactivated`. New `staff.test.mjs` (9)
+  covers the RLS boundaries and those write shapes. **78 total**.
+- **Booking attribution + admin reports — DONE** (migration `20260806000100`).
+  *Attribution*: `bookings.created_by` (already set by `fn_create_booking` from
+  `auth.uid()` — null for portal bookings, which run through the service-role
+  client) and `payments.recorded_by` were recorded but never shown; the
+  verifier lived only in `audit_logs`. New `bookings.verified_by` /
+  `verified_at` are written **inside the same conditional UPDATE** that
+  confirms a deposit (`verification-actions.ts`), so attribution is as
+  race-safe as the status flip — the loser of a two-staff race re-stamps
+  nothing. `audit_logs` is best-effort by design (`logAudit` swallows its own
+  errors), which is why reported-on attribution gets real columns instead.
+  The manage dialog now shows booked-by/channel/taken-on, deposit
+  verified-by/on, each payment's mode + amount + **who received it**, and a
+  chronological **activity trail**; the bookings list gained a searchable
+  "Handled by" column (`listBookingsWithStaff`).
+  *Two new SECURITY DEFINER readers* exist because front desk may read neither
+  `audit_logs` (admin-only; also holds settings/role changes) nor other
+  people's `profiles` (self-only; holds emails): `fn_booking_trail(booking)`
+  returns ONE booking's audit rows with actor names joined, and
+  `fn_staff_names(uuid[])` returns ids → names and nothing else. Both are
+  gated on `fn_is_active_user()` and both carry the mandatory
+  `revoke execute ... from public, anon` (see migration `20260726000600`).
+  Neither policy was widened.
+  *Reports* (`/reports`, admin-only, sidebar "Reports"): date range in the URL
+  (`?from=&to=`, defaults to month-to-date) + presets, print, and client-side
+  CSV export of the payments and bookings ledgers. Two clocks, deliberately:
+  **financial** figures follow the cash (a payment counts in the range it was
+  RECEIVED), **occupancy/ADR** follow the stay, and "bookings taken" follows
+  the booking date. Breakdowns by payment mode, by staff who collected, by
+  status, channel, room type, staff who took the booking, and staff who
+  verified deposits. Pure maths in `features/reports/analytics.ts` (no imports,
+  so it unit-tests under `--experimental-strip-types`); `csv.ts` escapes and
+  neutralises leading `=`/`+`/`-`/`@` against spreadsheet formula injection.
+  Room-nights reuse the dashboard's night window (14:00 → next 12:00), so an
+  ordinary overnight stay is ONE night rather than the two dates it touches —
+  counting dates would inflate occupancy and halve ADR. New tests:
+  `attribution.test.mjs` (10 DB) + `analytics.test.ts` (25 unit).
+  **113 total** (`npm run test:db`).
+- **Walk-in pays in full at booking — DONE** (no migration): a walk-in settles
+  the whole price at the counter, so the payment is part of the walk-in form
+  instead of a second trip through the manage dialog. **There is no amount
+  field** — `bookingSchema` carries only `payment_method` and
+  `payment_reference`, and `createBooking` inserts a payment for the row's own
+  `quoted_total` (the price `fn_create_booking` just computed) with
+  `recorded_by = auth.uid()` plus a `payment.record` audit entry. Recording the
+  server's own figure rather than a client-supplied one is what makes a part
+  payment or an overpayment *impossible* here instead of merely discouraged,
+  and it keeps the ledger, the trigger-derived `payment_status` and the
+  activity trail identical to what the manage dialog would have produced. The
+  two writes can't share a transaction (the booking comes back from an RPC), so
+  a failed payment insert is **reported, not swallowed** — the action returns
+  `paymentError` and the toast says the booking exists but the money isn't on
+  the ledger. `recordPayment` (manage dialog) now also refuses to exceed the
+  outstanding balance — it was the only remaining way to overpay a booking, and
+  an overpayment has no expressible meaning in reports. Deposit-then-balance on
+  *portal* bookings is untouched: those are still two payments by design.

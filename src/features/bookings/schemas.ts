@@ -1,8 +1,15 @@
 import { z } from "zod";
+import { PAYMENT_METHODS } from "./payment-schema";
 
 // Walk-in / staff booking form. check_in/check_out are datetime-local strings
 // (local wall-clock, no timezone) converted to ISO in the action. For block
 // tiers check_out is derived server-side, so it may be empty here.
+//
+// A walk-in guest pays the full price at the desk, so the payment is part of
+// this form rather than a second step in the manage dialog. There is
+// deliberately NO amount field: neither a part payment nor an overpayment is
+// allowed, so the recorded amount is always the booking's server-computed
+// `quoted_total` — staff choose only how the money came in.
 export const bookingSchema = z.object({
   guest_name: z.string().trim().min(1, "Guest name is required").max(120),
   guest_phone: z.string().trim().max(40).optional().or(z.literal("")),
@@ -13,6 +20,8 @@ export const bookingSchema = z.object({
   check_in: z.string().min(1, "Check-in is required"),
   check_out: z.string().optional().or(z.literal("")),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
+  payment_method: z.enum(PAYMENT_METHODS),
+  payment_reference: z.string().trim().max(80).optional().or(z.literal("")),
 });
 export type BookingFormValues = z.input<typeof bookingSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;

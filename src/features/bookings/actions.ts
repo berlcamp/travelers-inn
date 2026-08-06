@@ -14,9 +14,24 @@ function toIso(local: string): string {
   return new Date(local).toISOString();
 }
 
+// A walk-in books and pays the whole price at the same counter, so
+// createBooking records the payment too — always for exactly the booking's own
+// `quoted_total`, never a client-supplied figure, which is what makes a part
+// payment or an overpayment impossible here rather than merely discouraged.
+// The two writes can't share a transaction from here (the booking comes back
+// from an RPC), so a failed payment insert is reported rather than swallowed:
+// the booking exists and staff finish it in the manage dialog.
 export async function createBooking(
   input: unknown
-): Promise<ActionResult<{ id: string; reference_code: string }>> {
+): Promise<
+  ActionResult<{
+    id: string;
+    reference_code: string;
+    quoted_total: number;
+    paid: number;
+    paymentError: string | null;
+  }>
+> {
   try {
     const user = await requireRole(["admin", "front_desk"]);
     const parsed = bookingSchema.parse(input);
@@ -46,6 +61,7 @@ export async function createBooking(
     const row = (Array.isArray(data) ? data[0] : data) as {
       id: string;
       reference_code: string;
+      quoted_total: number | string;
     } | null;
     if (!row) return fail("Could not create the booking. Please try again.");
 
@@ -56,8 +72,44 @@ export async function createBooking(
       entityId: row.id,
       diff: { source: "walk_in", room_type_id: parsed.room_type_id },
     });
+
+    // Payment taken at the desk, in full. The amount is the row's own
+    // quoted_total (the price fn_create_booking just computed), so the ledger
+    // can't drift from the quote; the sync_payment_status trigger then derives
+    // payment_status = 'paid' from it, and nothing else needs updating.
+    const total = Number(row.quoted_total);
+    let paid = 0;
+    let paymentError: string | null = null;
+    const { error: payError } = await supabase.from("payments").insert({
+      booking_id: row.id,
+      amount: total,
+      method: parsed.payment_method,
+      reference: parsed.payment_reference || null,
+      recorded_by: user.id,
+    });
+    if (payError) {
+      paymentError = payError.message;
+    } else {
+      paid = total;
+      await logAudit({
+        actorId: user.id,
+        action: "payment.record",
+        entity: "booking",
+        entityId: row.id,
+        diff: { amount: total, method: parsed.payment_method },
+      });
+    }
+
     revalidatePath("/bookings");
-    return ok({ id: row.id, reference_code: row.reference_code });
+    revalidatePath("/calendar");
+    revalidatePath("/dashboard");
+    return ok({
+      id: row.id,
+      reference_code: row.reference_code,
+      quoted_total: total,
+      paid,
+      paymentError,
+    });
   } catch (err) {
     return toActionError(err);
   }

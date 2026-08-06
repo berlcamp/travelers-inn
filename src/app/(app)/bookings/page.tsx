@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Plus, ShieldAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth/guards";
-import { listBookings, countPendingVerification } from "@/features/bookings/repository";
+import { listBookingsWithStaff, countPendingVerification } from "@/features/bookings/repository";
 import { listActiveRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Bookings" };
 export default async function BookingsPage() {
   await requireRole(["admin", "front_desk"]);
   const [bookings, roomTypes, pendingCount] = await Promise.all([
-    listBookings(),
+    listBookingsWithStaff(),
     listActiveRoomTypes(),
     countPendingVerification(),
   ]);

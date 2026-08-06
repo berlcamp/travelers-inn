@@ -30,6 +30,25 @@ if (!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY) {
   throw new Error("Missing Supabase env in .env.local — run `npm run db:start` first.");
 }
 
+// These tests are destructive by design: every suite truncates bookings,
+// payments, rooms, room_types, profiles, user_roles, invitations, audit_logs
+// and feedback with the service-role key, which bypasses RLS. .env.local is
+// also what the app itself reads, so it sometimes points at the HOSTED project
+// — and on this SHARED project that would take other people's data with it.
+// Refuse to run anywhere but a local stack; there is no flag to override this
+// on purpose, because there is no good reason to want one.
+{
+  const host = new URL(SUPABASE_URL).hostname;
+  if (host !== "127.0.0.1" && host !== "localhost" && host !== "[::1]") {
+    throw new Error(
+      `Refusing to run destructive DB tests against ${SUPABASE_URL}.\n` +
+        "These tests wipe the booking schema. Point NEXT_PUBLIC_SUPABASE_URL in " +
+        ".env.local at the local stack (http://127.0.0.1:54621, see " +
+        "`npm run db:start`) before running them."
+    );
+  }
+}
+
 // Service-role client bound to the `booking` schema. Bypasses RLS.
 export function adminBooking() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
