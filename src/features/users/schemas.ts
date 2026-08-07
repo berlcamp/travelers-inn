@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ROLE_LABELS } from "@/lib/auth/roles";
 import type { Database } from "@/types/database.types";
 
 export type UserRole = Database["booking"]["Enums"]["user_role"];
@@ -6,10 +7,10 @@ export type InvitationStatus = Database["booking"]["Enums"]["invitation_status"]
 
 export const USER_ROLES = ["admin", "front_desk"] as const;
 
-export const ROLE_LABELS: Record<UserRole, string> = {
-  admin: "Administrator",
-  front_desk: "Front Desk",
-};
+// One definition, in lib/auth/roles — the access-denied panel, the app header
+// and this form all name roles the same way. Re-exported so the five callers
+// here keep their existing import.
+export { ROLE_LABELS };
 
 export const ROLE_OPTIONS = USER_ROLES.map((role) => ({
   value: role,

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus } from "lucide-react";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { listRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import { RoomTypeFormDialog } from "@/features/rooms/components/room-type-form-d
 export const metadata: Metadata = { title: "Room Types" };
 
 export default async function RoomTypesPage() {
-  await requireRole(["admin"]);
+  const allowed = await pageRole(["admin"]);
+  if (!allowed) return <AccessDenied requires={["admin"]} />;
   const roomTypes = await listRoomTypes();
 
   return (

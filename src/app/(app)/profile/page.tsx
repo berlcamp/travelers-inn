@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth/guards";
+import { ROLE_LABELS } from "@/lib/auth/roles";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileForm } from "@/features/profile/components/profile-form";
 
 export const metadata: Metadata = { title: "Profile" };
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Administrator",
-  front_desk: "Front Desk",
-};
 
 function initials(name: string) {
   return name

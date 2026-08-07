@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus, ShieldAlert } from "lucide-react";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { listBookingsWithStaff, countPendingVerification } from "@/features/bookings/repository";
 import { listActiveRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
@@ -11,7 +12,8 @@ import { WalkInDialog } from "@/features/bookings/components/walk-in-dialog";
 export const metadata: Metadata = { title: "Bookings" };
 
 export default async function BookingsPage() {
-  await requireRole(["admin", "front_desk"]);
+  const allowed = await pageRole(["admin", "front_desk"]);
+  if (!allowed) return <AccessDenied requires={["admin", "front_desk"]} />;
   const [bookings, roomTypes, pendingCount] = await Promise.all([
     listBookingsWithStaff(),
     listActiveRoomTypes(),

@@ -1,16 +1,11 @@
-import { requireUser, hasRole } from "@/lib/auth/guards";
+import { requireUser } from "@/lib/auth/guards";
+import { ROLE_LABELS } from "@/lib/auth/roles";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Administrator",
-  front_desk: "Front Desk",
-};
-
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const isAdmin = hasRole(user, "admin");
   const roleLabel =
     user.roles.length > 0
       ? user.roles.map((r) => ROLE_LABELS[r] ?? r).join(" · ")
@@ -18,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarProvider>
-      <AppSidebar isAdmin={isAdmin} />
+      <AppSidebar roles={user.roles} />
       <SidebarInset>
         <AppHeader
           user={{

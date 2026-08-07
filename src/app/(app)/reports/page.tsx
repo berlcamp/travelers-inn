@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BedDouble, CalendarCheck, Coins, Percent, TrendingUp, Wallet } from "lucide-react";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { getReportData } from "@/features/reports/repository";
 import { isoDate } from "@/features/reports/analytics";
 import { PageHeader } from "@/components/shared/page-header";
@@ -42,7 +43,8 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
-  await requireRole(["admin"]);
+  const allowed = await pageRole(["admin"]);
+  if (!allowed) return <AccessDenied requires={["admin"]} />;
   const params = await searchParams;
   const { from, to } = resolveRange(params.from, params.to);
   const data = await getReportData(from, to);

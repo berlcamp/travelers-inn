@@ -25,33 +25,46 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { roleMatches, type UserRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
   title: string;
   href: string;
   icon: React.ElementType;
+  /**
+   * The roles whose holders may open this page — the SAME list the page passes
+   * to `pageRole`. Omitted means any signed-in staff member, matching a page
+   * guarded by `requireUser` alone. Keep the two in step: an item drawn for
+   * someone the page will refuse is the bug this field exists to prevent.
+   */
+  requires?: UserRole[];
 };
 
 // The front desk's day, in the order it happens: check what's free, see the
 // week, work the reservations, then the rooms themselves and what guests said.
 const FRONT_DESK: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Availability", href: "/availability", icon: Search },
-  { title: "Calendar", href: "/calendar", icon: CalendarDays },
-  { title: "Bookings", href: "/bookings", icon: ClipboardList },
+  {
+    title: "Availability",
+    href: "/availability",
+    icon: Search,
+    requires: ["admin", "front_desk"],
+  },
+  { title: "Calendar", href: "/calendar", icon: CalendarDays, requires: ["admin", "front_desk"] },
+  { title: "Bookings", href: "/bookings", icon: ClipboardList, requires: ["admin", "front_desk"] },
   { title: "Rooms", href: "/rooms", icon: DoorOpen },
   { title: "Feedback", href: "/feedbacks", icon: MessageSquareHeart },
 ];
 
 // Admin-only: what the inn *is* and who runs it, rather than what it's doing
-// today. Filtered out entirely for front desk — a link that 403s reads as a
-// fault rather than as a boundary.
+// today. Filtered out entirely for front desk — a link that refuses to open
+// reads as a fault rather than as a boundary.
 const ADMIN: NavItem[] = [
-  { title: "Reports", href: "/reports", icon: ChartColumn },
-  { title: "Room Types", href: "/room-types", icon: Tags },
-  { title: "Staff", href: "/users", icon: Users },
-  { title: "Settings", href: "/settings", icon: Settings },
+  { title: "Reports", href: "/reports", icon: ChartColumn, requires: ["admin"] },
+  { title: "Room Types", href: "/room-types", icon: Tags, requires: ["admin"] },
+  { title: "Staff", href: "/users", icon: Users, requires: ["admin"] },
+  { title: "Settings", href: "/settings", icon: Settings, requires: ["admin"] },
 ];
 
 function NavLink({ item }: { item: NavItem }) {
@@ -90,7 +103,16 @@ function NavLink({ item }: { item: NavItem }) {
   );
 }
 
-export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
+export function AppSidebar({ roles }: { roles: UserRole[] }) {
+  // One predicate for the whole menu, shared with the page guards. A staff
+  // member with no role yet (invited, or mid-change) simply gets the shorter
+  // menu rather than a row of links that refuse to open.
+  const visible = (items: NavItem[]) =>
+    items.filter((item) => !item.requires || roleMatches(roles, item.requires));
+
+  const frontDesk = visible(FRONT_DESK);
+  const admin = visible(ADMIN);
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -112,19 +134,19 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {FRONT_DESK.map((item) => (
+            {frontDesk.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
           </SidebarMenu>
         </SidebarGroup>
 
-        {isAdmin ? (
+        {admin.length > 0 ? (
           <>
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel>Admin</SidebarGroupLabel>
               <SidebarMenu>
-                {ADMIN.map((item) => (
+                {admin.map((item) => (
                   <NavLink key={item.href} item={item} />
                 ))}
               </SidebarMenu>

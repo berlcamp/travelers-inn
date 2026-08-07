@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { UserPlus } from "lucide-react";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { listStaff, listInvitations } from "@/features/users/repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { InviteDialog } from "@/features/users/components/invite-dialog";
 export const metadata: Metadata = { title: "Staff" };
 
 export default async function UsersPage() {
-  const user = await requireRole(["admin"]);
+  const user = await pageRole(["admin"]);
+  if (!user) return <AccessDenied requires={["admin"]} />;
   const [staff, invitations] = await Promise.all([listStaff(), listInvitations()]);
 
   return (

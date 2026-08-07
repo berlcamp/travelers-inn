@@ -1,9 +1,12 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Database } from "@/types/database.types";
+import { roleMatches, type UserRole } from "@/lib/auth/roles";
 
-export type UserRole = Database["booking"]["Enums"]["user_role"];
+// Re-exported so callers keep importing their guards from one place. The
+// predicate itself lives in ./roles because client components need it and this
+// module reaches for next/headers — see the note there.
+export { roleMatches, type UserRole };
 
 export type CurrentUser = {
   id: string;
@@ -51,8 +54,7 @@ export async function requireUser(): Promise<CurrentUser> {
 
 // Admin passes every check.
 export function hasRole(user: CurrentUser, role: UserRole): boolean {
-  if (user.roles.includes("admin")) return true;
-  return user.roles.includes(role);
+  return roleMatches(user.roles, [role]);
 }
 
 export class ForbiddenError extends Error {
@@ -62,9 +64,37 @@ export class ForbiddenError extends Error {
   }
 }
 
-// For server actions and admin RSCs: throws when none of the roles match.
+/**
+ * For SERVER ACTIONS: throws when none of the roles match, so the action's
+ * catch turns it into an ActionResult error (see lib/action-result.ts).
+ *
+ * Do NOT use this in a page. A thrown error in a Server Component renders the
+ * error boundary — a bare "something went wrong" screen with a 500 — which
+ * tells a front-desk user who wandered onto /reports that the app is broken
+ * rather than that the page is not theirs. Pages use `pageRole` below.
+ */
 export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {
   const user = await requireUser();
-  if (!roles.some((role) => hasRole(user, role))) throw new ForbiddenError();
+  if (!roleMatches(user.roles, roles)) throw new ForbiddenError();
   return user;
+}
+
+/**
+ * For PAGES: the signed-in user, or `null` when their roles don't allow this
+ * page — a UI state, not an exception. Callers render `<AccessDenied />`:
+ *
+ *     const user = await pageRole(["admin"]);
+ *     if (!user) return <AccessDenied requires={["admin"]} />;
+ *
+ * Still redirects to /login when signed out or deactivated, because that is a
+ * different answer ("who are you?") from this one ("not you").
+ *
+ * Returning null rather than throwing is deliberate: Next sanitises errors in
+ * production — the boundary receives a generic message and a digest, so a
+ * ForbiddenError is indistinguishable there from a genuine crash, and cannot
+ * be rendered as a friendly panel.
+ */
+export async function pageRole(roles: UserRole[]): Promise<CurrentUser | null> {
+  const user = await requireUser();
+  return roleMatches(user.roles, roles) ? user : null;
 }

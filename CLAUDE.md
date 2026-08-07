@@ -292,3 +292,28 @@ Plans: `docs/superpowers/plans/`
   New `profile.test.mjs` (7) — mostly negative: blank/oversized names refused,
   `is_active`/`email` unmoved, a direct UPDATE on `profiles` still refused for
   front desk, and a deactivated user refused. **128 total** (`npm run test:db`).
+- **Role-aware menu + access-denied pages — DONE** (no migration). A signed-in
+  user whose roles didn't match a page got a **500**: `requireRole` throws
+  `ForbiddenError`, and a throw in a Server Component renders the error
+  boundary. The sidebar showed Availability/Calendar/Bookings to everyone, so a
+  role-less account (invited, or mid role-change) saw menu items that answered
+  with a crash — indistinguishable from the app being broken.
+  *Two guards now, deliberately*: `requireRole` still throws and is for
+  **server actions only** (their catch turns it into an `ActionResult`);
+  **pages** use `pageRole(roles)`, which returns `CurrentUser | null` and
+  renders `<AccessDenied requires={…} />` on null. Returning null rather than
+  throwing is forced by Next: production **sanitises errors**, so the boundary
+  sees a generic message plus a digest and cannot tell a permission refusal
+  from a genuine crash. `forbidden()` was rejected — it needs
+  `experimental.authInterrupts`.
+  *One predicate for menu and guard*: `roleMatches(userRoles, allowed)` in
+  **`lib/auth/roles.ts`**, NOT in `guards.ts` — guards imports the Supabase
+  server client (`next/headers`), and the sidebar is a client component, so
+  importing it from there pulls server-only code into the browser bundle and
+  **fails the build**. `guards.ts` re-exports it so callers have one import
+  site. Each `NavItem` carries the same `requires` array its page passes to
+  `pageRole`; keep them in step. `ROLE_LABELS` also moved there — it had been
+  duplicated in three files; `features/users/schemas.ts` re-exports it.
+  Result by role — admin 10 menu items, front desk 6, no-role 3, and every
+  route returns 200 for every role (restricted ones render the panel).
+  New `roles.test.ts` (6 unit). **134 total** (`npm run test:db`).

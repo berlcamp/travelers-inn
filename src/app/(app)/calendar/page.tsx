@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, DoorOpen } from "lucide-react";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { listRoomsWithType } from "@/features/rooms/repository";
 import { listBookings } from "@/features/bookings/repository";
 import { buildCalendar } from "@/features/bookings/calendar";
@@ -19,7 +20,8 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ start?: string }>;
 }) {
-  await requireRole(["admin", "front_desk"]);
+  const allowed = await pageRole(["admin", "front_desk"]);
+  if (!allowed) return <AccessDenied requires={["admin", "front_desk"]} />;
   const { start } = await searchParams;
 
   const [rooms, bookings] = await Promise.all([listRoomsWithType(), listBookings()]);

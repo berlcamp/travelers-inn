@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BedDouble, Search } from "lucide-react";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { searchAvailability } from "@/features/bookings/repository";
 import { listActiveRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
@@ -59,7 +60,8 @@ export default async function AvailabilityPage({
 }: {
   searchParams: Promise<{ in?: string; out?: string; guests?: string }>;
 }) {
-  await requireRole(["admin", "front_desk"]);
+  const allowed = await pageRole(["admin", "front_desk"]);
+  if (!allowed) return <AccessDenied requires={["admin", "front_desk"]} />;
   const { in: inRaw, out: outRaw, guests: guestsRaw } = await searchParams;
 
   const { checkIn, checkOut } = resolveWindow(inRaw, outRaw);

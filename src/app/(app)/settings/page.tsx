@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/auth/guards";
+import { pageRole } from "@/lib/auth/guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { PageHeader } from "@/components/shared/page-header";
 import { getSettings } from "@/features/settings/repository";
 import { SettingsForm } from "@/features/settings/components/settings-form";
@@ -7,7 +8,8 @@ import { SettingsForm } from "@/features/settings/components/settings-form";
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  await requireRole(["admin"]);
+  const allowed = await pageRole(["admin"]);
+  if (!allowed) return <AccessDenied requires={["admin"]} />;
   const settings = await getSettings();
 
   return (
