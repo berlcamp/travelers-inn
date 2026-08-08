@@ -373,3 +373,21 @@ Plans: `docs/superpowers/plans/`
   Both panels render as **siblings** of their parent dialog, not nested: the
   parent closes as the panel opens, so two modals never stack and focus lands
   where the clerk is looking.
+- **One hue per booking status — DONE** (no migration, no server logic). The
+  status column was two colours for four meanings: `confirmed` and `checked_in`
+  both drew the solid primary, and `pending_verification` shared grey with
+  `checked_out` (only an amber className override told the first two apart).
+  Scanning the column — which is how the list is actually read — could not
+  distinguish "in the building" from "arriving later". Every status now gets
+  its own tinted badge in one family (`border-<hue>/30 bg-<hue>/15
+  text-<hue>-700 dark:text-<hue>-300`, the pattern the old amber override
+  already used) so they differ only by hue: amber = wants attention now, blue =
+  settled/upcoming, emerald = in-house, slate = finished, rose = no-show.
+  **`cancelled` is deliberately not a fill** — an outline reads as absence, and
+  it separates the two "didn't happen" states by SHAPE rather than by two
+  similar reds, which is what a colour-blind clerk has to go on.
+  `PaymentStatusBadge` moved off blue in the same pass: a blue "Paid" sitting in
+  the next column to a blue "Confirmed" is two different facts in one colour.
+  Payment now reads red → amber → green (unpaid → partial → paid).
+  Badges are used by the bookings table, the manage dialog and the reports
+  ledger, so all three inherit this.

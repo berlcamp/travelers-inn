@@ -16,13 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FormInput, FormSelect, FormTextarea } from "@/components/shared/form-fields";
-import {
-  roomSchema,
-  ROOM_STATUSES,
-  ROOM_STATUS_LABELS,
-  type RoomFormValues,
-  type RoomInput,
-} from "@/features/rooms/schemas";
+import { roomSchema, type RoomFormValues, type RoomInput } from "@/features/rooms/schemas";
 import { saveRoom } from "@/features/rooms/actions";
 import type { Room, RoomType } from "@/features/rooms/repository";
 
@@ -31,7 +25,6 @@ function defaults(room?: Room): RoomFormValues {
     id: room?.id,
     room_type_id: room?.room_type_id ?? "",
     label: room?.label ?? "",
-    status: room?.status ?? "vacant",
     notes: room?.notes ?? "",
   };
 }
@@ -65,7 +58,6 @@ export function RoomFormDialog({
   }, [open, form]);
 
   const typeOptions = roomTypes.map((t) => ({ value: t.id, label: t.name }));
-  const statusOptions = ROOM_STATUSES.map((s) => ({ value: s, label: ROOM_STATUS_LABELS[s] }));
 
   function onSubmit(values: RoomInput) {
     startTransition(async () => {
@@ -95,12 +87,6 @@ export function RoomFormDialog({
             label="Room type"
             options={typeOptions}
             placeholder="Choose a type"
-          />
-          <FormSelect
-            control={form.control}
-            name="status"
-            label="Status"
-            options={statusOptions}
           />
           <FormTextarea
             control={form.control}

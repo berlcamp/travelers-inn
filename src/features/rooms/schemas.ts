@@ -76,11 +76,16 @@ export const ROOM_STATUS_LABELS: Record<RoomStatus, string> = {
   out_of_service: "Out of service",
 };
 
+// No `status` field, deliberately. A new room starts `vacant` (the column's DB
+// default) and from then on the status is written by the stay lifecycle
+// (check-in/check-out) or by the two housekeeping actions. Carrying it on the
+// edit form would mean an admin fixing a typo in a room's notes also submitted
+// a status — and the form, loaded before the guest arrived, would happily
+// write `vacant` over a room someone had since checked into.
 export const roomSchema = z.object({
   id: z.string().uuid().optional(),
   room_type_id: z.string().uuid("Select a room type"),
   label: z.string().trim().min(1, "Label is required").max(40),
-  status: z.enum(ROOM_STATUSES).default("vacant"),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
 });
 export type RoomFormValues = z.input<typeof roomSchema>;

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
-import { roomTypeSchema, roomSchema, ROOM_STATUSES, type RoomStatus } from "./schemas";
+import { roomTypeSchema, roomSchema, type RoomStatus } from "./schemas";
 
 // ---- Room types (admin only) ------------------------------------------------
 
@@ -270,10 +270,12 @@ export async function saveRoom(input: unknown): Promise<ActionResult<{ id: strin
     const parsed = roomSchema.parse(input);
     const supabase = await createClient();
 
+    // `status` is absent on purpose — see roomSchema. An insert takes the
+    // column's `vacant` default; an update leaves whatever the stay lifecycle
+    // and housekeeping have put there untouched.
     const row = {
       room_type_id: parsed.room_type_id,
       label: parsed.label,
-      status: parsed.status,
       notes: parsed.notes || null,
     };
 
@@ -373,20 +375,93 @@ export async function deleteRoom(id: string): Promise<ActionResult<{ id: string 
   }
 }
 
-// Housekeeping status change — allowed for front desk too.
-export async function updateRoomStatus(
-  id: string,
-  status: RoomStatus
-): Promise<ActionResult<{ id: string }>> {
+// ---- Housekeeping (front desk too) ------------------------------------------
+//
+// `rooms.status` is written automatically by the stay lifecycle: check-in sets
+// `occupied`, check-out sets `cleaning` (features/bookings/front-desk-actions).
+// What follows are the only two transitions no booking can supply — whether
+// the room has actually been cleaned, and whether it is physically usable.
+// There is deliberately no general "set the status to anything" action any
+// more: `occupied` and `cleaning` are conclusions, not opinions, and letting
+// staff type them let the column contradict the bookings it was meant to
+// summarise.
+
+// cleaning → vacant. Refused from any other status, because from `occupied` it
+// would evict an in-house guest from the board and from `out_of_service` it
+// would quietly cancel the repair.
+export async function markRoomClean(id: string): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await requireRole(["admin", "front_desk"]);
-    if (!ROOM_STATUSES.includes(status)) return fail("Invalid status.");
     const supabase = await createClient();
-    const { error } = await supabase.from("rooms").update({ status }).eq("id", id);
+
+    const { data: room, error: readError } = await supabase
+      .from("rooms")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (readError) return fail(readError.message);
+    if (!room) return fail("That room no longer exists.");
+    if (room.status === "out_of_service") {
+      return fail("This room is out of service. Return it to service first.");
+    }
+    if (room.status !== "cleaning") return fail("Only a room being cleaned can be marked ready.");
+
+    const { error } = await supabase.from("rooms").update({ status: "vacant" }).eq("id", id);
     if (error) return fail(error.message);
     await logAudit({
       actorId: user.id,
-      action: "room.update_status",
+      action: "room.mark_clean",
+      entity: "room",
+      entityId: id,
+      diff: { status: "vacant" },
+    });
+    revalidatePath("/rooms");
+    return ok({ id });
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+// Out of service and back. Taking a room out is always allowed — a burst pipe
+// doesn't wait for the guest to leave, and this is the one status the booking
+// engine actually reads (every availability function filters on
+// `status <> 'out_of_service'`), so it has to be reachable at any moment.
+//
+// Coming BACK is where the status has to be rebuilt rather than remembered:
+// the old value was thrown away when the room went out, and the truth is in
+// the bookings. A guest checked in while the room was out of service (staff
+// moved them, then the repair finished) means it's occupied; otherwise the act
+// of returning it to service is itself the statement that it's ready.
+export async function setRoomOutOfService(
+  id: string,
+  out: boolean
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireRole(["admin", "front_desk"]);
+    const supabase = await createClient();
+
+    let status: RoomStatus = "out_of_service";
+    if (!out) {
+      const { data: inHouse } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("room_id", id)
+        .eq("status", "checked_in")
+        .limit(1);
+      status = (inHouse ?? []).length > 0 ? "occupied" : "vacant";
+    }
+
+    const { data: updated, error } = await supabase
+      .from("rooms")
+      .update({ status })
+      .eq("id", id)
+      .select("id");
+    if (error) return fail(error.message);
+    if (!updated || updated.length === 0) return fail("That room no longer exists.");
+
+    await logAudit({
+      actorId: user.id,
+      action: out ? "room.out_of_service" : "room.back_in_service",
       entity: "room",
       entityId: id,
       diff: { status },

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, QrCode, Tags } from "lucide-react";
 import { requireUser, hasRole } from "@/lib/auth/guards";
-import { listRoomsWithType, listRoomTypes } from "@/features/rooms/repository";
+import { listRoomsWithOccupancy, listRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Rooms" };
 export default async function RoomsPage() {
   const user = await requireUser();
   const isAdmin = hasRole(user, "admin");
-  const [rooms, roomTypes] = await Promise.all([listRoomsWithType(), listRoomTypes()]);
+  const [rooms, roomTypes] = await Promise.all([listRoomsWithOccupancy(), listRoomTypes()]);
   const activeTypes = roomTypes.filter((t) => t.is_active);
 
   return (
