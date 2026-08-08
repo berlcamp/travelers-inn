@@ -43,6 +43,7 @@ function booking(over: Partial<ReportBooking> = {}): ReportBooking {
     source: "walk_in",
     roomId: "r1",
     roomLabel: "101",
+    roomTypeId: "type-couple",
     roomTypeName: "Couple",
     quotedTotal: 1000,
     guestCount: 2,
@@ -372,6 +373,114 @@ test("deposit verifications are credited to the verifier, in the range they happ
   assert.equal(r.verifiedByStaff.length, 1);
   assert.equal(r.verifiedByStaff[0].key, "s2");
   assert.equal(r.verifiedByStaff[0].count, 1, "only the August verification counts");
+});
+
+// ---- filters ----------------------------------------------------------------
+
+test("the room type filter narrows bookings, room-nights and the payments with them", () => {
+  const bookings = [
+    booking({ id: "couple", roomTypeId: "t-couple", quotedTotal: 1000 }),
+    booking({ id: "family", roomTypeId: "t-family", quotedTotal: 4000 }),
+  ];
+  const filters = { roomTypeId: "t-couple", staffId: null };
+
+  const fin = computeFinancialReport({
+    ...RANGE,
+    bookings,
+    paidByBooking: new Map(),
+    filters,
+    payments: [
+      payment({ id: "p-couple", bookingId: "couple", amount: 500 }),
+      payment({ id: "p-family", bookingId: "family", amount: 4000 }),
+    ],
+  });
+  assert.equal(fin.collected, 500, "only the couple room's payment is collected");
+  assert.equal(fin.bookedRevenue, 1000);
+
+  // roomsTotal is the count of rooms OF THAT TYPE — the repository narrows the
+  // denominator, or the filtered numerator would read as an occupancy crash.
+  const bk = computeBookingReport({ ...RANGE, bookings, roomsTotal: 1, filters });
+  assert.equal(bk.totalTaken, 1);
+  assert.equal(bk.roomNights, 1, "only the couple room's night is sold");
+  assert.deepEqual(
+    bk.byRoomType.map((x) => x.label),
+    ["Couple"]
+  );
+});
+
+test("the staff filter follows each attribution to its own column", () => {
+  const bookings = [
+    // Dana took this one at the desk.
+    booking({ id: "dana", createdBy: "dana", createdByName: "Dana Desk" }),
+    // Cleo took this one.
+    booking({ id: "cleo", createdBy: "cleo", createdByName: "Cleo Clerk" }),
+    // Nobody "took" a portal booking — but Dana verified its deposit. This is
+    // the case that breaks if verifications are scoped by created_by.
+    booking({
+      id: "portal",
+      source: "portal",
+      createdBy: null,
+      createdByName: null,
+      verifiedBy: "dana",
+      verifiedByName: "Dana Desk",
+      verifiedAt: at(2026, 8, 6, 9),
+    }),
+  ];
+  const filters = { roomTypeId: null, staffId: "dana" };
+
+  const bk = computeBookingReport({ ...RANGE, bookings, roomsTotal: 3, filters });
+  assert.equal(bk.totalTaken, 1, "bookings taken follows created_by");
+  assert.equal(bk.taken[0].id, "dana");
+  assert.equal(bk.verifiedByStaff.length, 1, "verifications follow verified_by");
+  assert.equal(bk.verifiedByStaff[0].count, 1);
+
+  const fin = computeFinancialReport({
+    ...RANGE,
+    bookings,
+    paidByBooking: new Map(),
+    filters,
+    payments: [
+      payment({ id: "p1", bookingId: "cleo", amount: 900, recordedBy: "dana" }),
+      payment({ id: "p2", bookingId: "dana", amount: 700, recordedBy: "cleo" }),
+    ],
+  });
+  assert.equal(
+    fin.collected,
+    900,
+    "money follows recorded_by — Dana receiving cash on Cleo's booking is Dana's collection"
+  );
+});
+
+test("the two filters compose", () => {
+  const bookings = [
+    booking({ id: "a", roomTypeId: "t-couple", createdBy: "dana", quotedTotal: 1000 }),
+    booking({ id: "b", roomTypeId: "t-couple", createdBy: "cleo", quotedTotal: 1000 }),
+    booking({ id: "c", roomTypeId: "t-family", createdBy: "dana", quotedTotal: 4000 }),
+  ];
+  const r = computeBookingReport({
+    ...RANGE,
+    bookings,
+    roomsTotal: 1,
+    filters: { roomTypeId: "t-couple", staffId: "dana" },
+  });
+  assert.equal(r.totalTaken, 1);
+  assert.equal(r.taken[0].id, "a");
+});
+
+test("no filters leaves every figure exactly as it was", () => {
+  const bookings = [
+    booking({ id: "a", roomTypeId: "t-couple", createdBy: "dana" }),
+    booking({ id: "b", roomTypeId: "t-family", createdBy: "cleo" }),
+  ];
+  const plain = computeBookingReport({ ...RANGE, bookings, roomsTotal: 2 });
+  const explicit = computeBookingReport({
+    ...RANGE,
+    bookings,
+    roomsTotal: 2,
+    filters: { roomTypeId: null, staffId: null },
+  });
+  assert.equal(plain.totalTaken, 2);
+  assert.deepEqual(explicit, plain, "an empty filter must be a no-op, not a subtly different path");
 });
 
 // ---- CSV --------------------------------------------------------------------

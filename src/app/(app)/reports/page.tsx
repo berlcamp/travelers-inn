@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BedDouble, CalendarCheck, Coins, Percent, TrendingUp, Wallet } from "lucide-react";
 import { pageRole } from "@/lib/auth/guards";
 import { AccessDenied } from "@/components/shared/access-denied";
-import { getReportData } from "@/features/reports/repository";
+import { getReportData, getReportFilterOptions } from "@/features/reports/repository";
 import { isoDate } from "@/features/reports/analytics";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -41,27 +41,50 @@ function resolveRange(from?: string, to?: string): { from: string; to: string } 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; roomType?: string; staff?: string }>;
 }) {
   const allowed = await pageRole(["admin"]);
   if (!allowed) return <AccessDenied requires={["admin"]} />;
   const params = await searchParams;
   const { from, to } = resolveRange(params.from, params.to);
-  const data = await getReportData(from, to);
+  const options = await getReportFilterOptions();
+
+  // An id in the URL that names nothing (a deleted room type, a hand-typed
+  // param) is dropped rather than reported as an empty inn: the picker would
+  // show "All room types" while every figure read zero.
+  const roomTypeId = options.roomTypes.some((t) => t.id === params.roomType)
+    ? (params.roomType ?? null)
+    : null;
+  const staffId = options.staff.some((s) => s.id === params.staff)
+    ? (params.staff ?? null)
+    : null;
+
+  const data = await getReportData(from, to, { roomTypeId, staffId });
   const f = data.financial;
   const b = data.bookings;
+
+  const roomTypeName = options.roomTypes.find((t) => t.id === roomTypeId)?.name ?? null;
+  const staffName = options.staff.find((s) => s.id === staffId)?.name ?? null;
+  const scope = [roomTypeName, staffName].filter(Boolean).join(" · ");
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Reports"
-        description={`${fullDate.format(new Date(`${from}T00:00:00`))} – ${fullDate.format(
-          new Date(`${to}T00:00:00`)
-        )}`}
+        description={
+          `${fullDate.format(new Date(`${from}T00:00:00`))} – ` +
+          `${fullDate.format(new Date(`${to}T00:00:00`))}${scope ? ` · ${scope}` : ""}`
+        }
         actions={<ExportButtons payments={f.payments} bookings={b.taken} from={from} to={to} />}
       />
 
-      <ReportRange from={from} to={to} />
+      <ReportRange
+        from={from}
+        to={to}
+        roomTypeId={roomTypeId}
+        staffId={staffId}
+        options={options}
+      />
 
       {/* ---- Financial ---- */}
       <section className="flex flex-col gap-4">
@@ -151,7 +174,17 @@ export default async function ReportsPage({
             label="Occupancy"
             value={`${b.occupancyPct}%`}
             icon={Percent}
-            hint={`${data.roomsTotal} room${data.roomsTotal === 1 ? "" : "s"} in service`}
+            // With a receptionist selected this is no longer inn occupancy —
+            // the numerator is only the nights that person sold, so it reads
+            // as their share of capacity. Say so rather than let it look like
+            // the inn half-emptied.
+            hint={
+              staffName
+                ? `Share of capacity sold by ${staffName}`
+                : `${data.roomsTotal} ${roomTypeName ?? "room"}${
+                    data.roomsTotal === 1 ? "" : "s"
+                  } in service`
+            }
           />
           <StatCard
             label="Average nightly rate"

@@ -19,6 +19,7 @@ export type ReportBooking = {
   source: string;
   roomId: string;
   roomLabel: string;
+  roomTypeId: string;
   roomTypeName: string;
   quotedTotal: number;
   guestCount: number;
@@ -47,6 +48,46 @@ export type ReportPayment = {
 
 export type Bucket = { key: string; label: string; count: number; amount: number };
 export type DayPoint = { date: string; label: string; value: number; max: number };
+
+// Narrows the whole report. Both are optional and compose.
+export type ReportFilters = {
+  /** A room_types.id, or null for every type. */
+  roomTypeId: string | null;
+  /** A staff member's user id, or null for everyone. */
+  staffId: string | null;
+};
+
+export const NO_FILTERS: ReportFilters = { roomTypeId: null, staffId: null };
+
+// The two filters are not the same kind of thing, and treating them alike
+// would produce numbers nobody could defend:
+//
+//   * ROOM TYPE is a property of the stay itself, so it narrows every figure
+//     uniformly — money, bookings, and room-nights. The occupancy denominator
+//     narrows with it (the repository counts only rooms of that type),
+//     otherwise a filtered numerator over the whole inn's capacity would read
+//     as a collapse in occupancy.
+//   * STAFF is an ATTRIBUTION, and the three things a receptionist can be
+//     attributed with sit on three different columns: `created_by` (took the
+//     booking), `recorded_by` (received the money) and `verified_by` (checked
+//     a deposit). Each is filtered on its own column. There is deliberately no
+//     single "this staff member's bookings" set: deposits exist only on PORTAL
+//     bookings, which have no creator at all, so filtering verifications by
+//     `created_by` would always come back empty.
+//
+// Under a staff filter, occupancy therefore reads as "share of capacity this
+// person sold" rather than inn occupancy — the page labels it as such.
+function matchesRoomType(b: ReportBooking, f: ReportFilters): boolean {
+  return !f.roomTypeId || b.roomTypeId === f.roomTypeId;
+}
+
+// Bookings this filter attributes to the selected staff member (or all of
+// them). Drives everything on the booking clock except verifications.
+function scopeBookings(bookings: ReportBooking[], f: ReportFilters): ReportBooking[] {
+  return bookings.filter(
+    (b) => matchesRoomType(b, f) && (!f.staffId || b.createdBy === f.staffId)
+  );
+}
 
 // Stays in these statuses hold a room, so they count toward occupancy.
 // Cancelled and no-show stays never occupied anything.
@@ -172,6 +213,7 @@ export type FinancialInput = {
   /** Paid-to-date per booking id, across ALL time — outstanding is a balance
    *  as of now, not something a date range can scope. */
   paidByBooking: Map<string, number>;
+  filters?: ReportFilters;
 };
 
 export type FinancialReport = {
@@ -189,10 +231,21 @@ export type FinancialReport = {
 
 export function computeFinancialReport(input: FinancialInput): FinancialReport {
   const { start, end, days } = rangeBounds(input.from, input.to);
+  const filters = input.filters ?? NO_FILTERS;
+
+  // A payment names a booking, not a room type, so the type filter has to go
+  // through the booking. The repository guarantees every payment in the range
+  // has its booking in this array — including one settling a stay that neither
+  // started, slept, nor is still active in the range — so a type filter can
+  // never silently drop money it simply failed to classify.
+  const typeOfBooking = new Map(input.bookings.map((b) => [b.id, b.roomTypeId]));
+  const paymentMatches = (p: ReportPayment) =>
+    (!filters.staffId || p.recordedBy === filters.staffId) &&
+    (!filters.roomTypeId || typeOfBooking.get(p.bookingId) === filters.roomTypeId);
 
   // Cash clock: payments received inside the range.
   const received = input.payments
-    .filter((p) => within(p.createdAt, start, end))
+    .filter((p) => within(p.createdAt, start, end) && paymentMatches(p))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const collected = received.reduce((acc, p) => acc + p.amount, 0);
 
@@ -226,7 +279,8 @@ export function computeFinancialReport(input: FinancialInput): FinancialReport {
   const daily: DayPoint[] = dayTotals.map((d) => ({ ...d, max: dailyMax }));
 
   // Booking clock: what was sold in the range, whether or not it's been paid.
-  const taken = input.bookings.filter((b) => within(b.createdAt, start, end));
+  const scoped = scopeBookings(input.bookings, filters);
+  const taken = scoped.filter((b) => within(b.createdAt, start, end));
   const bookedRevenue = taken
     .filter((b) => !VOID.includes(b.status))
     .reduce((acc, b) => acc + b.quotedTotal, 0);
@@ -234,7 +288,7 @@ export function computeFinancialReport(input: FinancialInput): FinancialReport {
     .filter((b) => VOID.includes(b.status))
     .reduce((acc, b) => acc + b.quotedTotal, 0);
 
-  const outstanding = input.bookings
+  const outstanding = scoped
     .filter((b) => ACTIVE.includes(b.status))
     .reduce((acc, b) => acc + Math.max(0, b.quotedTotal - (input.paidByBooking.get(b.id) ?? 0)), 0);
 
@@ -258,7 +312,10 @@ export type BookingReportInput = {
   from: string;
   to: string;
   bookings: ReportBooking[];
+  /** Rooms the occupancy denominator counts — already narrowed to the filtered
+   *  room type by the repository. */
   roomsTotal: number;
+  filters?: ReportFilters;
 };
 
 export type BookingReport = {
@@ -279,9 +336,11 @@ export type BookingReport = {
 
 export function computeBookingReport(input: BookingReportInput): BookingReport {
   const { start, end, days } = rangeBounds(input.from, input.to);
+  const filters = input.filters ?? NO_FILTERS;
+  const scoped = scopeBookings(input.bookings, filters);
 
   // Booking clock — who sold what in this range.
-  const taken = input.bookings
+  const taken = scoped
     .filter((b) => within(b.createdAt, start, end))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -316,8 +375,13 @@ export function computeBookingReport(input: BookingReportInput): BookingReport {
   // Deposit verifications done in the range — separate from bookings taken,
   // because the staff member who verifies a portal deposit is usually not the
   // one who "sold" it (nobody did; the guest booked themselves).
+  // Filtered on `verified_by` rather than reusing `scoped` — see the note by
+  // ReportFilters: a portal booking has no creator, so scoping this by
+  // created_by would empty the panel the moment a staff filter was applied.
   const verifiedByStaff = bucketize(
     input.bookings
+      .filter((b) => matchesRoomType(b, filters))
+      .filter((b) => !filters.staffId || b.verifiedBy === filters.staffId)
       .filter((b) => b.verifiedBy && b.verifiedAt && within(b.verifiedAt, start, end))
       .map((b) => ({
         key: b.verifiedBy,
@@ -330,7 +394,7 @@ export function computeBookingReport(input: BookingReportInput): BookingReport {
   // Stay clock — nights actually slept inside the range.
   let roomNights = 0;
   let stayRevenue = 0;
-  for (const b of input.bookings) {
+  for (const b of scoped) {
     if (!OCCUPYING.includes(b.status)) continue;
     const nightsInRange = nightsBetween(b.checkIn, b.checkOut, start, end);
     if (nightsInRange === 0) continue;

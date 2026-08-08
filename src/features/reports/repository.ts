@@ -5,9 +5,11 @@ import {
   computeBookingReport,
   computeFinancialReport,
   rangeBounds,
+  NO_FILTERS,
   type BookingReport,
   type FinancialReport,
   type ReportBooking,
+  type ReportFilters,
   type ReportPayment,
 } from "./analytics";
 
@@ -71,8 +73,9 @@ export async function getDashboardData(): Promise<DashboardData> {
 // ---- admin reports ----------------------------------------------------------
 
 const REPORT_BOOKING_SELECT =
-  "id, reference_code, guest_name, status, source, room_id, period, quoted_total, guest_count, " +
-  "created_at, created_by, verified_by, verified_at, room:rooms(label), room_type:room_types(name)";
+  "id, reference_code, guest_name, status, source, room_id, room_type_id, period, quoted_total, " +
+  "guest_count, created_at, created_by, verified_by, verified_at, room:rooms(label), " +
+  "room_type:room_types(name)";
 
 type RawBooking = {
   id: string;
@@ -81,6 +84,7 @@ type RawBooking = {
   status: string;
   source: string;
   room_id: string;
+  room_type_id: string;
   period: string;
   quoted_total: number;
   guest_count: number;
@@ -100,10 +104,31 @@ const ACTIVE = ["pending_verification", "confirmed", "checked_in"] as const;
 export type ReportData = {
   from: string;
   to: string;
+  filters: ReportFilters;
   roomsTotal: number;
   financial: FinancialReport;
   bookings: BookingReport;
 };
+
+// Options for the two filter pickers. Deactivated staff and inactive room
+// types are kept: a report about last month has to be able to name whoever was
+// on the desk then, even if they've since left.
+export type ReportFilterOptions = {
+  roomTypes: { id: string; name: string }[];
+  staff: { id: string; name: string }[];
+};
+
+export async function getReportFilterOptions(): Promise<ReportFilterOptions> {
+  const supabase = await createClient();
+  const [{ data: roomTypes }, { data: profiles }] = await Promise.all([
+    supabase.from("room_types").select("id, name").order("name"),
+    supabase.from("profiles").select("id, full_name").order("full_name"),
+  ]);
+  return {
+    roomTypes: roomTypes ?? [],
+    staff: (profiles ?? []).map((p) => ({ id: p.id, name: p.full_name || "Unnamed staff" })),
+  };
+}
 
 // Three overlapping booking sets feed one report, and each is needed for a
 // different reason:
@@ -113,7 +138,11 @@ export type ReportData = {
 //   3. active, any date      → the outstanding balance, which is a position as
 //                              of now and can't be scoped to a date range
 // They're merged by id, so a booking in two of them is counted once.
-export async function getReportData(from: string, to: string): Promise<ReportData> {
+export async function getReportData(
+  from: string,
+  to: string,
+  filters: ReportFilters = NO_FILTERS
+): Promise<ReportData> {
   const supabase = await createClient();
   const { start, end } = rangeBounds(from, to);
   const startIso = start.toISOString();
@@ -121,7 +150,7 @@ export async function getReportData(from: string, to: string): Promise<ReportDat
 
   const [{ data: rooms }, { data: created }, { data: staying }, { data: active }] =
     await Promise.all([
-      supabase.from("rooms").select("id"),
+      supabase.from("rooms").select("id, room_type_id"),
       supabase
         .from("bookings")
         .select(REPORT_BOOKING_SELECT)
@@ -139,7 +168,6 @@ export async function getReportData(from: string, to: string): Promise<ReportDat
   for (const row of [...(created ?? []), ...(staying ?? []), ...(active ?? [])]) {
     byId.set((row as unknown as RawBooking).id, row as unknown as RawBooking);
   }
-  const rawBookings = [...byId.values()];
 
   // Payments: those received in the range drive every financial figure, plus
   // paid-to-date on the active bookings so the outstanding balance is right.
@@ -160,6 +188,28 @@ export async function getReportData(from: string, to: string): Promise<ReportDat
       : Promise.resolve({ data: [] as { booking_id: string; amount: number }[] }),
   ]);
 
+  // A payment can settle a booking that fits none of the three sets above — a
+  // balance paid on a stay that checked out before the range began. It still
+  // belongs in the cash figures, so fetch its booking: without one, the room
+  // type filter has nothing to match the payment on and would drop it, and the
+  // ledger would print a dash where the guest's name goes. These bookings are
+  // by construction outside every window the report measures (not created in
+  // range, not staying in range, not active), so adding them cannot move any
+  // figure other than the ones that were already wrong.
+  const missingIds = [...new Set((rangePayments ?? []).map((p) => p.booking_id))].filter(
+    (id) => !byId.has(id)
+  );
+  if (missingIds.length > 0) {
+    const { data: settled } = await supabase
+      .from("bookings")
+      .select(REPORT_BOOKING_SELECT)
+      .in("id", missingIds);
+    for (const row of settled ?? []) {
+      byId.set((row as unknown as RawBooking).id, row as unknown as RawBooking);
+    }
+  }
+  const rawBookings = [...byId.values()];
+
   const names = await resolveStaffNames([
     ...rawBookings.flatMap((b) => [b.created_by, b.verified_by]),
     ...(rangePayments ?? []).map((p) => p.recorded_by),
@@ -176,6 +226,7 @@ export async function getReportData(from: string, to: string): Promise<ReportDat
       source: b.source,
       roomId: b.room_id,
       roomLabel: b.room?.label ?? "",
+      roomTypeId: b.room_type_id,
       roomTypeName: b.room_type?.name ?? "",
       quotedTotal: Number(b.quoted_total),
       guestCount: b.guest_count,
@@ -216,11 +267,19 @@ export async function getReportData(from: string, to: string): Promise<ReportDat
     );
   }
 
+  // The occupancy denominator narrows with the room-type filter — a filtered
+  // numerator over the whole inn's capacity would read as a collapse in
+  // occupancy rather than as a filter.
+  const roomsTotal = (rooms ?? []).filter(
+    (r) => !filters.roomTypeId || r.room_type_id === filters.roomTypeId
+  ).length;
+
   return {
     from,
     to,
-    roomsTotal: (rooms ?? []).length,
-    financial: computeFinancialReport({ from, to, payments, bookings, paidByBooking }),
-    bookings: computeBookingReport({ from, to, bookings, roomsTotal: (rooms ?? []).length }),
+    filters,
+    roomsTotal,
+    financial: computeFinancialReport({ from, to, payments, bookings, paidByBooking, filters }),
+    bookings: computeBookingReport({ from, to, bookings, roomsTotal, filters }),
   };
 }
