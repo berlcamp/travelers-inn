@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { SITE_URL } from "@/lib/site";
+import { fallbackOgImage } from "@/lib/og-image";
 import "./globals.css";
 
 // The variable names are load-bearing: globals.css maps --font-sans/--font-mono
@@ -44,14 +45,9 @@ export const metadata: Metadata = {
     title: "Bañares Traveler's Inn",
     description:
       "Nightly stays and short day-use rooms in the heart of town. Check availability, book in seconds",
-    images: [
-      {
-        url: "/og-couple.jpg",
-        width: 2048,
-        height: 1536,
-        alt: "Bañares Traveler's Inn",
-      },
-    ],
+    // Dimensions matter even for a static file: they are what lets Facebook
+    // draw the thumbnail on its first scrape. See lib/og-image.ts.
+    images: [fallbackOgImage()],
   },
   twitter: {
     card: "summary_large_image",

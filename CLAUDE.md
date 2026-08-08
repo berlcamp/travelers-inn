@@ -444,6 +444,35 @@ Plans: `docs/superpowers/plans/`
   for exactly this (dropping a ruled header the printed page already titles).
   CSV export reuses `reports/csv.ts` (formula-injection safe) and carries a
   Cash yes/no column.
+- **Facebook share cards on room links — FIXED** (no migration). A shared
+  `/book?type=…&checkIn=…&checkOut=…` link showed title and description but
+  **no thumbnail**. The tags were all being served correctly and the image
+  itself was a reachable 200 — the defect was what was MISSING:
+  `og:image:width` / `og:image:height`. Facebook draws a card before it has
+  downloaded the image, so with no declared dimensions the first scrape of a
+  URL has no picture. Normally invisible (a handful of URLs, scraped once and
+  cached) — but every shared room link carries the SHARER's own dates, so every
+  share is a URL Facebook has never seen, and every share was a first scrape.
+  Room covers are uploaded by staff, so their size isn't known ahead of time
+  and can't be hardcoded. `lib/og-image.ts` `coverOgImage()` instead rewrites
+  the Supabase public-object URL to the **image-transform endpoint**
+  (`/storage/v1/object/public/` → `/storage/v1/render/image/public/` +
+  `?width=1200&height=630&resize=cover`), which makes the dimensions true by
+  construction and lands on the 1.91:1 ratio Facebook crops to anyway.
+  Transformations are a paid Supabase feature — **verified live on this
+  project** before relying on them. A URL that isn't a Supabase public object
+  is returned untouched and WITHOUT dimensions: rewriting it blindly would turn
+  a working image into a 404, and losing the dimensions is only back to where
+  we started. Zero is never emitted (`og:image:width 0` is worse than silence).
+  *Second bug found in the same pass*: `SITE_URL` was
+  `https://bti.kerisoftware.com`, but the deployment also answers on
+  `https://www.banarestravellersinn.com`, which is the domain actually shared.
+  `og:url` is what Facebook treats as canonical, so every share of a branded
+  link was re-attributed to the other host — engagement accumulating on a URL
+  nobody advertises, and a click-through that walked the guest off the brand.
+  `SITE_URL` is now the www domain (the apex 308-redirects to it). QR codes
+  already printed still work: the old host serves the same app.
+  New `og-image.test.ts` (8 unit). **185 total** (`npm run test:db`).
   *Where the code lives*: the maths is `computeCollectionsReport` in
   **`features/reports/analytics.ts`**, not in the new feature — that file is
   the one module pure enough to unit-test under `--experimental-strip-types`,

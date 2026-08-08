@@ -11,6 +11,7 @@ import {
 } from "@/features/portal/repository";
 import { peso } from "@/features/bookings/pricing";
 import { SITE_URL } from "@/lib/site";
+import { coverOgImage, fallbackOgImage } from "@/lib/og-image";
 
 type BookSearchParams = { type?: string; checkIn?: string; checkOut?: string };
 
@@ -36,11 +37,15 @@ export async function generateMetadata({
 
   // `image_url` is the cover — migration 20260726000100 keeps it synced to the
   // lowest-sort_order photo — and Supabase's getPublicUrl already made it
-  // absolute, which is what crawlers require.
-  const cover = roomType.image_url?.trim();
-  const images = cover
-    ? [{ url: cover, alt: `${roomType.name} · Bañares Traveler's Inn` }]
-    : [{ url: "/og-couple.jpg", width: 2048, height: 1536, alt: "Bañares Traveler's Inn" }];
+  // absolute, which is what crawlers require. coverOgImage additionally sizes
+  // it to 1200×630 so the DIMENSIONS can be declared: without those Facebook
+  // draws the card before it has measured the file, and since every shared
+  // link carries the sharer's own dates, every share is a first scrape and
+  // every card came out with no thumbnail. See lib/og-image.ts.
+  const images = [
+    coverOgImage(roomType.image_url, `${roomType.name} · Bañares Traveler's Inn`) ??
+      fallbackOgImage(),
+  ];
 
   // og:url keeps the dates the sharer had. Facebook follows it on click, and a
   // /book URL stripped of its dates renders "that room could not be found" —
@@ -116,7 +121,7 @@ export default async function BookPage({
         size="sm"
         nativeButton={false}
         render={<Link href="/" />}
-        className="text-muted-foreground -ml-2 mb-6"
+        className="text-muted-foreground mb-6 -ml-2"
       >
         <ArrowLeft className="size-4" /> Back to rooms
       </Button>
@@ -150,7 +155,7 @@ export default async function BookPage({
                 <div className="text-2xl font-semibold">{peso.format(option.fromPrice)}</div>
               </div>
               {option.available > 0 ? (
-                <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full px-2.5 py-1 text-xs font-medium">
+                <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
                   {option.available} available
                 </span>
               ) : (
