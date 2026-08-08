@@ -84,9 +84,7 @@ function matchesRoomType(b: ReportBooking, f: ReportFilters): boolean {
 // Bookings this filter attributes to the selected staff member (or all of
 // them). Drives everything on the booking clock except verifications.
 function scopeBookings(bookings: ReportBooking[], f: ReportFilters): ReportBooking[] {
-  return bookings.filter(
-    (b) => matchesRoomType(b, f) && (!f.staffId || b.createdBy === f.staffId)
-  );
+  return bookings.filter((b) => matchesRoomType(b, f) && (!f.staffId || b.createdBy === f.staffId));
 }
 
 // Stays in these statuses hold a room, so they count toward occupancy.
@@ -303,6 +301,134 @@ export function computeFinancialReport(input: FinancialInput): FinancialReport {
     voidedValue,
     outstanding,
     payments: received,
+  };
+}
+
+// ---- collections / remittance ----------------------------------------------
+//
+// The maths behind the Collections Report (`/collections`, features/collections)
+// lives here rather than in that feature because this is the one module in the
+// project that is pure enough to unit-test under --experimental-strip-types,
+// and because it already owns the date-range semantics: a collections sheet and
+// the admin report must never disagree about what "1–7 August" contains.
+//
+// It runs entirely on the CASH clock — a payment counts on the day it was
+// RECEIVED — and it attributes on `recorded_by` (who took the money), NOT
+// `created_by` (who sold the booking). Those are different people whenever one
+// receptionist books a guest and another collects the balance on check-out, and
+// only the first answers the question this report exists for: what is in this
+// person's drawer, and what are they handing over?
+
+/**
+ * Methods that leave physical money in the drawer — the only ones a shift
+ * actually turns over at the end of it. GCash, card and bank transfers have
+ * already landed in an account, so they belong on the sheet (they reconcile
+ * against a statement) but not in the amount counted out by hand.
+ */
+const CASH_METHODS = ["cash"];
+
+export function isCashMethod(method: string): boolean {
+  return CASH_METHODS.includes(method);
+}
+
+export type CollectionsFilters = {
+  /** Whose collections. Null = everyone, which only an admin ever sees. */
+  staffId: string | null;
+  /** A payment_method to narrow to, or null for every mode. */
+  method: string | null;
+};
+
+export const NO_COLLECTION_FILTERS: CollectionsFilters = { staffId: null, method: null };
+
+export type CollectionDay = {
+  date: string;
+  label: string;
+  count: number;
+  cash: number;
+  nonCash: number;
+  total: number;
+};
+
+export type CollectionsReport<P extends ReportPayment = ReportPayment> = {
+  /** Every transaction in scope, oldest first — a remittance sheet is read in
+   *  the order the shift happened, not biggest-first. */
+  payments: P[];
+  count: number;
+  total: number;
+  /** What has to be counted out and handed over. */
+  cash: number;
+  /** Collected, but already in an account — reconciled, not remitted. */
+  nonCash: number;
+  byMethod: Bucket[];
+  byStaff: Bucket[];
+  daily: CollectionDay[];
+};
+
+// Generic over the payment row so callers can carry extra display fields (room
+// label, booking channel) through without this module knowing about them.
+export function computeCollectionsReport<P extends ReportPayment>(input: {
+  from: string;
+  to: string;
+  payments: P[];
+  filters?: CollectionsFilters;
+}): CollectionsReport<P> {
+  const { start, end, days } = rangeBounds(input.from, input.to);
+  const filters = input.filters ?? NO_COLLECTION_FILTERS;
+
+  const received = input.payments
+    .filter((p) => within(p.createdAt, start, end))
+    .filter((p) => !filters.staffId || p.recordedBy === filters.staffId)
+    .filter((p) => !filters.method || p.method === filters.method)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  let cash = 0;
+  let nonCash = 0;
+  for (const p of received) {
+    if (isCashMethod(p.method)) cash += p.amount;
+    else nonCash += p.amount;
+  }
+
+  const byMethod = bucketize(
+    received.map((p) => ({ key: p.method, label: p.method, amount: p.amount })),
+    { key: "unknown", label: "Unknown" }
+  );
+  const byStaff = bucketize(
+    received.map((p) => ({
+      key: p.recordedBy,
+      label: p.recordedByName ?? "Unnamed staff",
+      amount: p.amount,
+    })),
+    // Portal deposits recorded before `recorded_by` existed, or by an account
+    // since deleted. Shown as their own line: money nobody can be asked for is
+    // exactly the money a remittance sheet must not quietly drop.
+    { key: "unattributed", label: "Unattributed" }
+  );
+
+  const daily: CollectionDay[] = Array.from({ length: days }, (_, i) => {
+    const day = new Date(start.getTime() + i * DAY_MS);
+    const next = new Date(start.getTime() + (i + 1) * DAY_MS);
+    const rows = received.filter((p) => within(p.createdAt, day, next));
+    const dayCash = rows.filter((p) => isCashMethod(p.method)).reduce((a, p) => a + p.amount, 0);
+    const dayTotal = rows.reduce((a, p) => a + p.amount, 0);
+    return {
+      date: isoDate(day),
+      label: DAY_LABEL.format(day),
+      count: rows.length,
+      cash: dayCash,
+      nonCash: dayTotal - dayCash,
+      total: dayTotal,
+    };
+  });
+
+  return {
+    payments: received,
+    count: received.length,
+    total: cash + nonCash,
+    cash,
+    nonCash,
+    byMethod,
+    byStaff,
+    daily,
   };
 }
 

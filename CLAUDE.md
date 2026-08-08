@@ -391,3 +391,53 @@ Plans: `docs/superpowers/plans/`
   Payment now reads red → amber → green (unpaid → partial → paid).
   Badges are used by the bookings table, the manage dialog and the reports
   ledger, so all three inherit this.
+- **Collections Report (remittance / turn-over) — DONE** (no migration).
+  `/reports` is admin-only and answers "how did the inn do"; a receptionist
+  handing over a drawer needs a different document, so `/collections` is a new
+  page open to **admin AND front_desk** (sidebar "Collections", in the
+  front-desk group — it's shift work, not analysis).
+  *Attribution is `payments.recorded_by`, NOT `bookings.created_by`.* Those are
+  different people the moment one clerk books a guest and another collects the
+  balance at check-out, and only the first answers "what is in this person's
+  drawer". `/reports`' staff filter deliberately spans three columns
+  (created_by / recorded_by / verified_by); this page uses exactly one.
+  *Cash is separated from non-cash* — GCash/card/bank money is already in an
+  account and is reconciled, not counted out. "Cash to remit" is the headline
+  tile and the figure restated beside the signatures. `isCashMethod()` in
+  `analytics.ts` is the single definition.
+  *Scope*: front desk is **pinned to their own id server-side** — `?staff=` is
+  ignored for them rather than validated, and the picker isn't rendered — so a
+  hand-typed id can't open a colleague's sheet. Admin may pick anyone or view
+  everybody; the "Received by" column and the by-receptionist breakdown appear
+  only in that all-staff view. Note this is a *product* boundary, not a
+  security one: `payments_staff_read` (migration 8) is gated on
+  `fn_is_active_user()`, not on a role, which is precisely what lets this page
+  exist for front desk without a new SECURITY DEFINER reader. Staff NAMES still
+  come from `fn_staff_names` — `profiles` is self-only for front desk.
+  *Range defaults to TODAY* (not month-to-date like `/reports`): a remittance
+  sheet is one shift. Presets are Today / Yesterday / Last 7 days / This month;
+  filters ride in the URL (`?from=&to=&staff=&method=`) so a sheet is
+  reloadable and shareable. Payment-mode filter narrows every figure, not just
+  the list.
+  *Print* is the deliverable: `PrintHeader` + `SignatureBlock`
+  (`remittance-slip.tsx`) are `hidden print:…`, adding the inn name, period,
+  receptionist, timestamp, the restated cash total and **Turned over by /
+  Received by** signature lines. The existing `@media print` rules in
+  `globals.css` already hide the sidebar and header, so nothing there changed.
+  CSV export reuses `reports/csv.ts` (formula-injection safe) and carries a
+  Cash yes/no column.
+  *Where the code lives*: the maths is `computeCollectionsReport` in
+  **`features/reports/analytics.ts`**, not in the new feature — that file is
+  the one module pure enough to unit-test under `--experimental-strip-types`,
+  and it already owns `rangeBounds`, so a collections sheet and a report can
+  never disagree about what "1–7 August" contains. It's generic over the
+  payment row (`<P extends ReportPayment>`) so `features/collections` can carry
+  room label + channel through without widening `ReportPayment`.
+  `CollectionsFilters.method` stays a plain `string` there (no imports allowed)
+  and is re-narrowed against the enum in the repository — an unknown value
+  would otherwise reach Postgres as a cast error, not as "no match".
+  New tests: `collections.test.ts` (11 unit) + `remittance.test.mjs` (6 DB —
+  front desk can read the ledger with its nested embeds, each clerk's sheet
+  holds what they RECEIVED, the day window includes 23:50, anon is refused, a
+  deactivated clerk loses both the ledger and `fn_staff_names`).
+  **177 total** (`npm run test:db`).

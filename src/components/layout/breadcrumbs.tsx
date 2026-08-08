@@ -12,6 +12,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   rooms: "Rooms",
   qr: "QR Codes",
   feedbacks: "Feedback",
+  collections: "Collections",
   reports: "Reports",
   "room-types": "Room Types",
   users: "Staff",

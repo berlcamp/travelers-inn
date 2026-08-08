@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Banknote,
   CalendarDays,
   ChartColumn,
   ClipboardList,
@@ -55,6 +56,15 @@ const FRONT_DESK: NavItem[] = [
   { title: "Bookings", href: "/bookings", icon: ClipboardList, requires: ["admin", "front_desk"] },
   { title: "Rooms", href: "/rooms", icon: DoorOpen },
   { title: "Feedback", href: "/feedbacks", icon: MessageSquareHeart },
+  // Front desk's own remittance sheet; admins see everyone's from the same
+  // page. It sits with the daily work rather than under Reports because it's
+  // something a receptionist prints at the end of a shift, not analysis.
+  {
+    title: "Collections",
+    href: "/collections",
+    icon: Banknote,
+    requires: ["admin", "front_desk"],
+  },
 ];
 
 // Admin-only: what the inn *is* and who runs it, rather than what it's doing
@@ -120,14 +130,7 @@ export function AppSidebar({ roles }: { roles: UserRole[] }) {
           {/* The mark is dark teal, so it needs a light ground to read against
               the sidebar — which is dark in BOTH themes. */}
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white">
-            <Image
-              src="/logo-mark.png"
-              alt=""
-              width={64}
-              height={64}
-              className="size-6"
-              priority
-            />
+            <Image src="/logo-mark.png" alt="" width={64} height={64} className="size-6" priority />
           </div>
           <div className="min-w-0">
             <p className="text-sidebar-foreground truncate text-sm leading-tight font-bold tracking-wide">
