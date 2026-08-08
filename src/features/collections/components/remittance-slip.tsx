@@ -20,10 +20,10 @@ export function PrintHeader({
   printedAt: Date;
 }) {
   return (
-    <div className="hidden print:mb-4 print:block print:border-b print:border-neutral-400 print:pb-3">
-      <p className="text-xs tracking-[0.2em] uppercase">Bañares Traveler&apos;s Inn</p>
-      <h1 className="mt-0.5 text-lg font-bold">Collections &amp; Remittance Report</h1>
-      <dl className="mt-2 grid grid-cols-3 gap-x-6 text-xs">
+    <div className="hidden print:mb-1.5 print:block print:border-b print:border-neutral-400 print:pb-1.5">
+      <p className="text-[8px] tracking-[0.2em] uppercase">Bañares Traveler&apos;s Inn</p>
+      <h1 className="text-sm font-bold">Collections &amp; Remittance Report</h1>
+      <dl className="mt-1 grid grid-cols-3 gap-x-6 text-[9px] leading-tight">
         <div>
           <dt className="text-neutral-500">Period</dt>
           <dd className="font-medium">{period}</dd>
@@ -48,24 +48,26 @@ export function PrintHeader({
  */
 export function SignatureBlock({ cash, total }: { cash: number; total: number }) {
   return (
-    <div className="hidden break-inside-avoid print:mt-6 print:block">
-      <div className="mb-4 flex justify-end gap-8 text-sm">
+    <div className="hidden break-inside-avoid print:mt-3 print:block">
+      <div className="mb-2 flex justify-end gap-8 text-xs">
         <div className="text-right">
-          <p className="text-xs text-neutral-500 uppercase">Total collected</p>
+          <p className="text-[8px] text-neutral-500 uppercase">Total collected</p>
           <p className="font-medium tabular-nums">{peso.format(total)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-neutral-500 uppercase">Cash turned over</p>
-          <p className="text-base font-bold tabular-nums">{peso.format(cash)}</p>
+          <p className="text-[8px] text-neutral-500 uppercase">Cash turned over</p>
+          <p className="text-sm font-bold tabular-nums">{peso.format(cash)}</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-10">
         {["Turned over by", "Received by"].map((role) => (
           <div key={role}>
-            <div className="h-10" />
-            <div className="border-t border-neutral-500 pt-1">
-              <p className="text-xs font-medium">{role}</p>
-              <p className="text-[0.65rem] text-neutral-500">
+            {/* The blank is the point — it is what gets signed. Kept at ~9mm:
+                enough to write in, small enough not to cost a page. */}
+            <div className="h-7" />
+            <div className="border-t border-neutral-500 pt-0.5">
+              <p className="text-[9px] font-medium">{role}</p>
+              <p className="text-[7px] text-neutral-500">
                 Signature over printed name &nbsp;·&nbsp; Date
               </p>
             </div>

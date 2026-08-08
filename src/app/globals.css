@@ -214,4 +214,22 @@
     size: A4;
     margin: 12mm;
   }
+
+  /* The collections sheet (src/app/(app)/collections) is a remittance document
+     rather than a screenshot of a page, and it is signed on Philippine short
+     bond — so it claims its own geometry with a NAMED page, leaving the QR
+     sheet on the A4 default above. Margins are tighter for the same reason the
+     rows are: the whole point is that an ordinary shift fits on one sheet.
+
+     Named pages are a progressive enhancement. A browser that ignores `page:`
+     falls back to the A4 rule, which still prints correctly — it just spends
+     more paper. Long bond (8.5×13) works too: content sized for the shorter
+     sheet always fits the longer one. */
+  .print-sheet {
+    page: sheet;
+  }
+  @page sheet {
+    size: 8.5in 11in;
+    margin: 10mm;
+  }
 }

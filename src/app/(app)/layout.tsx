@@ -23,7 +23,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             roleLabel,
           }}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        {/* No padding on paper: the @page margin already provides the real
+            one, and doubling it costs rows on a sheet meant to hold a whole
+            shift. */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 print:p-0">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

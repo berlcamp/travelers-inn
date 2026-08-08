@@ -88,8 +88,13 @@ export default async function CollectionsPage({
   const singleDay = from === to;
 
   return (
-    <div className="flex flex-col gap-6">
+    // `print-sheet` claims the bond-paper @page (see globals.css). On paper this
+    // whole page collapses to three things: who/when, the transactions, and the
+    // signatures — everything else is `print:hidden` below, because a screen
+    // summary a clerk can read live is a second sheet nobody asked to carry.
+    <div className="print-sheet flex flex-col gap-6 print:gap-0">
       <PageHeader
+        className="print:hidden"
         title="Collections Report"
         description={`${period} · ${scope}` + (methodLabel ? ` · ${methodLabel} only` : "")}
         actions={
@@ -117,7 +122,10 @@ export default async function CollectionsPage({
         canPickStaff={isAdmin}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Screen only. The two figures that matter on paper — cash and total —
+          are restated beside the signatures, so printing these tiles too would
+          spend a third of the sheet repeating them. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
         {/* Cash leads: it is the only figure that has to be counted out by
             hand, and the one the two signatures at the bottom are about. */}
         <StatCard
@@ -146,7 +154,9 @@ export default async function CollectionsPage({
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* Screen only, same reason: breakdowns are for reading at the desk, and
+          every one of them is derivable from the transaction list below it. */}
+      <div className="grid gap-4 lg:grid-cols-2 print:hidden">
         <SectionCard title="By payment mode">
           <BreakdownTable
             buckets={report.byMethod}
@@ -175,9 +185,14 @@ export default async function CollectionsPage({
         ) : null}
       </div>
 
+      {/* On paper the card chrome and its title both go: PrintHeader has
+          already named the document, and a ruled box around a ruled table is
+          two frames for one thing. */}
       <SectionCard
         title="Transactions"
         aside={`${report.count} payment${report.count === 1 ? "" : "s"}`}
+        className="print:rounded-none print:py-0 print:shadow-none print:ring-0"
+        headerClassName="print:hidden"
         contentClassName="px-0 pt-0"
       >
         <CollectionsLedger payments={report.payments} showStaff={allStaff} singleDay={singleDay} />

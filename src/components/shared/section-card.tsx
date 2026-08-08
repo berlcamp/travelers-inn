@@ -12,6 +12,7 @@ export function SectionCard({
   icon: Icon,
   aside,
   className,
+  headerClassName,
   contentClassName,
   children,
 }: {
@@ -20,12 +21,20 @@ export function SectionCard({
   /** Right-hand note in the header row — a count, a unit, a caveat. */
   aside?: React.ReactNode;
   className?: string;
+  /** For dropping the ruled header — `print:hidden` on a panel whose title the
+   *  printed page already carries. */
+  headerClassName?: string;
   contentClassName?: string;
   children: React.ReactNode;
 }) {
   return (
     <Card className={cn("border-border/60 gap-0 border shadow-sm ring-0", className)}>
-      <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2 border-b pb-4">
+      <CardHeader
+        className={cn(
+          "flex flex-row flex-wrap items-baseline justify-between gap-2 border-b pb-4",
+          headerClassName
+        )}
+      >
         <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-semibold tracking-widest uppercase">
           {Icon ? <Icon className="size-4" /> : null}
           {title}

@@ -419,11 +419,29 @@ Plans: `docs/superpowers/plans/`
   filters ride in the URL (`?from=&to=&staff=&method=`) so a sheet is
   reloadable and shareable. Payment-mode filter narrows every figure, not just
   the list.
-  *Print* is the deliverable: `PrintHeader` + `SignatureBlock`
-  (`remittance-slip.tsx`) are `hidden print:…`, adding the inn name, period,
-  receptionist, timestamp, the restated cash total and **Turned over by /
-  Received by** signature lines. The existing `@media print` rules in
-  `globals.css` already hide the sidebar and header, so nothing there changed.
+  *Print* is the deliverable, and the printed sheet is a DIFFERENT document
+  from the screen — it is three things only: `PrintHeader` (inn name, period,
+  receptionist, timestamp), the **transactions table**, and `SignatureBlock`
+  (restated total + cash, then **Turned over by / Received by** lines). Both
+  live in `remittance-slip.tsx` as `hidden print:…`. The stat tiles, every
+  breakdown card, the page header and the panel's own "TRANSACTIONS" title are
+  all `print:hidden`: each is either derivable from the list below it or
+  already restated beside the signatures, and the target is **one sheet of
+  bond paper for an ordinary shift**.
+  Density is where that is won: print-only cell padding (`print:py-[1px]`),
+  9px type, the second line of the guest and mode cells folded **inline**
+  instead of block, and room type dropped (the room label already identifies
+  the room). Screen padding is untouched — a clerk tapping a row on a monitor
+  needs the target. `<main>` loses its `p-4/p-6` on print (`print:p-0`); the
+  `@page` margin is the real one, and doubling it cost rows. This also
+  slightly widens the QR sheet, which is fine.
+  Page geometry uses a **named page**: `.print-sheet { page: sheet }` +
+  `@page sheet { size: 8.5in 11in; margin: 10mm }` in `globals.css`, so PH
+  short bond applies here while the QR sheet keeps the A4 default. Named pages
+  are a progressive enhancement — a browser that ignores `page:` falls back to
+  A4 and still prints, just on more paper; long bond (8.5×13) fits anything
+  sized for the shorter sheet. `SectionCard` gained a `headerClassName` prop
+  for exactly this (dropping a ruled header the printed page already titles).
   CSV export reuses `reports/csv.ts` (formula-injection safe) and carries a
   Cash yes/no column.
   *Where the code lives*: the maths is `computeCollectionsReport` in
