@@ -10,8 +10,65 @@ import {
   listPortalAvailability,
 } from "@/features/portal/repository";
 import { peso } from "@/features/bookings/pricing";
+import { SITE_URL } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Complete your booking" };
+type BookSearchParams = { type?: string; checkIn?: string; checkOut?: string };
+
+const FALLBACK_DESCRIPTION =
+  "Reserve with a small deposit and settle the rest at the front desk when you arrive.";
+
+// A room link shared to Facebook should show THAT room, not the inn's generic
+// card. Page-level `openGraph` replaces the root layout's wholesale rather than
+// merging field by field, so every field is restated here — omitting one blanks
+// it rather than inheriting it.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<BookSearchParams>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const roomType = sp.type ? await getRoomTypePublic(sp.type) : null;
+
+  if (!roomType) return { title: "Complete your booking" };
+
+  const title = roomType.name;
+  const description = roomType.description?.trim() || FALLBACK_DESCRIPTION;
+
+  // `image_url` is the cover — migration 20260726000100 keeps it synced to the
+  // lowest-sort_order photo — and Supabase's getPublicUrl already made it
+  // absolute, which is what crawlers require.
+  const cover = roomType.image_url?.trim();
+  const images = cover
+    ? [{ url: cover, alt: `${roomType.name} · Bañares Traveler's Inn` }]
+    : [{ url: "/og-couple.jpg", width: 2048, height: 1536, alt: "Bañares Traveler's Inn" }];
+
+  // og:url keeps the dates the sharer had. Facebook follows it on click, and a
+  // /book URL stripped of its dates renders "that room could not be found" —
+  // so trimming them for tidier cache keys would break the click-through.
+  const canonical = new URL("/book", SITE_URL);
+  for (const [key, value] of Object.entries(sp)) {
+    if (value) canonical.searchParams.set(key, value);
+  }
+
+  return {
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      url: canonical.toString(),
+      siteName: "Bañares Traveler's Inn",
+      title: `${title} · Bañares Traveler's Inn`,
+      description,
+      images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · Bañares Traveler's Inn`,
+      description,
+      images: images.map((i) => i.url),
+    },
+  };
+}
 
 const dtFmt = new Intl.DateTimeFormat("en-PH", {
   weekday: "short",
@@ -26,7 +83,7 @@ function fmtDate(local: string) {
 export default async function BookPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; checkIn?: string; checkOut?: string }>;
+  searchParams: Promise<BookSearchParams>;
 }) {
   const sp = await searchParams;
   const roomType = sp.type ? await getRoomTypePublic(sp.type) : null;

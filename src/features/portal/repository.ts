@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPublicSettings } from "@/features/settings/repository";
 import type { RoomType, RateTier, RoomTypeWithTiers } from "@/features/rooms/repository";
@@ -32,16 +33,22 @@ export async function listActiveRoomTypesPublic(): Promise<RoomTypeWithTiers[]> 
   return ((data as RoomTypeWithTiers[] | null) ?? []).map(withActiveTiers);
 }
 
-export async function getRoomTypePublic(id: string): Promise<RoomTypeWithTiers | null> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("room_types")
-    .select(TYPE_SELECT)
-    .eq("id", id)
-    .eq("is_active", true)
-    .maybeSingle();
-  return data ? withActiveTiers(data as RoomTypeWithTiers) : null;
-}
+// `cache`d because /book reads this twice per request — once in
+// generateMetadata for the share card, once in the page body — and they must
+// agree: a card advertising a room the body then calls unavailable is worse
+// than either failure alone.
+export const getRoomTypePublic = cache(
+  async (id: string): Promise<RoomTypeWithTiers | null> => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("room_types")
+      .select(TYPE_SELECT)
+      .eq("id", id)
+      .eq("is_active", true)
+      .maybeSingle();
+    return data ? withActiveTiers(data as RoomTypeWithTiers) : null;
+  }
+);
 
 function withActiveTiers(t: RoomTypeWithTiers): RoomTypeWithTiers {
   return {
