@@ -19,8 +19,8 @@ export function RoomTypeCard({
   const soldOut = option.available <= 0;
   const bookHref = `/book?type=${option.id}&checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}`;
 
-  return (
-    <article className="group border-border flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-black/[0.02] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
+  const card = (
+    <article className="group border-border flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-sm ring-1 ring-black/[0.02] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
       <RoomVisual name={option.name} index={index} imageUrl={option.imageUrl} className="h-44" />
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
@@ -60,12 +60,35 @@ export function RoomTypeCard({
               Unavailable
             </Button>
           ) : (
-            <Button size="sm" nativeButton={false} render={<Link href={bookHref} />}>
+            // A span, not a link: the whole card is the anchor now, and an
+            // anchor inside an anchor is invalid HTML. `group-hover` restores
+            // the press-ready look the button's own `[a]:hover` gave it, and
+            // now it lights up from anywhere on the card.
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<span />}
+              className="group-hover:bg-primary/80"
+            >
               Book
             </Button>
           )}
         </div>
       </div>
     </article>
+  );
+
+  // Sold out stays inert on purpose — its button says "Unavailable" and is
+  // disabled, so a card that still navigated would contradict its own control.
+  if (soldOut) return card;
+
+  return (
+    <Link
+      href={bookHref}
+      aria-label={`Book ${option.name}`}
+      className="focus-visible:ring-ring/50 block rounded-2xl focus-visible:ring-3 focus-visible:outline-none"
+    >
+      {card}
+    </Link>
   );
 }
