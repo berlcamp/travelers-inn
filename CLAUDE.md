@@ -349,3 +349,27 @@ Plans: `docs/superpowers/plans/`
   `revoke execute … from public, anon` and `bookings.test.mjs` now asserts anon
   is still refused. See `20260726000600`. `bookings.test.mjs` +7 (17).
   **149 total** (`npm run test:db`).
+- **"Booking confirmed" room panel — DONE** (no migration, no server logic).
+  Both confirmation paths ended in a **toast**, which is the wrong instrument:
+  the clerk has to read a room number out loud to the guest, and a toast
+  disappears on its own timer — possibly while they are still counting change.
+  New `components/booking-confirmed-dialog.tsx` is a modal with the **room
+  number as the headline** (4xl, with the room type under it) and reference,
+  guest, stay window, rate, guest count and the money below. It is shared by
+  both paths because both end the same way: a booking the guest can now walk
+  into.
+  *Walk-in*: `createBooking` returns only ids, and the room is only knowable
+  after the server assigned it, so the dialog fetches `loadBookingDetail` after
+  success. That fetch failing must NOT read as a failed booking — the booking
+  exists and the toast already said so, so it just falls back to no panel.
+  *Online*: the trigger is verifying the deposit, so `VerificationPanel` gained
+  an **`onConfirmed`** callback separate from `onDone` (rejecting still uses
+  `onDone`). `BookingManageDialog.onVerified()` re-reads the booking BEFORE
+  showing the panel — otherwise it would render the `pending_verification` row
+  the dialog was opened with rather than the confirmed one.
+  *Balance*: shown only when > 0. A walk-in settles in full, so a ₱0.00 line
+  would be noise there; a portal booking has a deposit paid and the rest due,
+  which is the number the clerk actually has to say.
+  Both panels render as **siblings** of their parent dialog, not nested: the
+  parent closes as the panel opens, so two modals never stack and focus lands
+  where the clerk is looking.

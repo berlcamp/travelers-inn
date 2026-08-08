@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { parsePeriod } from "@/features/bookings/repository";
+import { deriveOccupancy, type OccupancyBooking, type RoomOccupancy } from "./occupancy";
 import type { Database } from "@/types/database.types";
 
 export type RoomType = Database["booking"]["Tables"]["room_types"]["Row"];
@@ -56,4 +58,51 @@ export async function listRoomsWithType(): Promise<RoomWithType[]> {
     .select("*, room_type:room_types(id, name)")
     .order("label");
   return (data as RoomWithType[] | null) ?? [];
+}
+
+export type RoomWithOccupancy = RoomWithType & { occupancy: RoomOccupancy };
+
+// Rooms plus who is in each one, derived from bookings rather than read off
+// `rooms.status` — see occupancy.ts for why those are two different things.
+//
+// Two booking queries, not one: in-house stays are unbounded in the past (a
+// guest checked in last week is still in the room) while future arrivals are
+// unbounded forward, so a single date filter can't express both. `checked_in`
+// is inherently a small set, and the arrivals query is clipped to today.
+export async function listRoomsWithOccupancy(): Promise<RoomWithOccupancy[]> {
+  const supabase = await createClient();
+  const now = new Date();
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const BOOKING_SELECT = "id, room_id, status, guest_name, period";
+  const [{ data: rooms }, { data: inHouse }, { data: arriving }] = await Promise.all([
+    supabase.from("rooms").select("*, room_type:room_types(id, name)").order("label"),
+    supabase.from("bookings").select(BOOKING_SELECT).eq("status", "checked_in"),
+    supabase
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .in("status", ["confirmed", "pending_verification"])
+      .overlaps("period", `[${dayStart.toISOString()},${dayEnd.toISOString()})`),
+  ]);
+
+  const bookings: OccupancyBooking[] = [...(inHouse ?? []), ...(arriving ?? [])].map((b) => {
+    const row = b as typeof b & { period: string };
+    const { checkIn, checkOut } = parsePeriod(row.period);
+    return {
+      id: row.id,
+      roomId: row.room_id,
+      status: row.status,
+      guestName: row.guest_name,
+      checkIn,
+      checkOut,
+    };
+  });
+
+  return ((rooms as RoomWithType[] | null) ?? []).map((room) => ({
+    ...room,
+    occupancy: deriveOccupancy(room.id, bookings, now),
+  }));
 }

@@ -19,10 +19,17 @@ export function VerificationPanel({
   bookingId,
   proof,
   onDone,
+  onConfirmed,
 }: {
   bookingId: string;
   proof: ProofRow | null;
   onDone: () => void;
+  /**
+   * Confirming is the moment an online booking becomes something the guest can
+   * walk into, so it gets its own callback: the caller shows the room panel
+   * instead of merely refreshing. Rejecting still goes through `onDone`.
+   */
+  onConfirmed?: () => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -45,12 +52,16 @@ export function VerificationPanel({
     };
   }, [bookingId, proof]);
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
+  function run(
+    fn: () => Promise<{ ok: boolean; error?: string }>,
+    okMsg: string,
+    after: () => void = onDone
+  ) {
     startTransition(async () => {
       const result = await fn();
       if (result.ok) {
         toast.success(okMsg);
-        onDone();
+        after();
       } else {
         toast.error(result.error ?? "Something went wrong.");
       }
@@ -133,7 +144,13 @@ export function VerificationPanel({
         <Button
           size="sm"
           disabled={pending || !(Number(amount) > 0)}
-          onClick={() => run(() => confirmBooking(bookingId, Number(amount)), "Booking confirmed.")}
+          onClick={() =>
+            run(
+              () => confirmBooking(bookingId, Number(amount)),
+              "Booking confirmed.",
+              onConfirmed ?? onDone
+            )
+          }
         >
           <Check className="size-4" /> Confirm booking
         </Button>
