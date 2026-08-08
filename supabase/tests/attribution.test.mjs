@@ -211,21 +211,30 @@ async function main() {
 
   await test("fn_booking_trail returns this booking's audit entries with actor names", async () => {
     // logAudit writes through the service-role client, same as the app.
+    //
+    // The two entries whose ORDER is asserted go in as separate statements, on
+    // purpose: `created_at` defaults to now(), which is TRANSACTION time, so a
+    // multi-row insert stamps every row with the same instant and the
+    // function's `order by created_at` is left with a tie it breaks
+    // arbitrarily. logAudit is one call per event, so in the app these entries
+    // always land in separate transactions with distinct timestamps — that is
+    // what makes "oldest first" a real ordering, and what this reproduces.
+    await b.from("audit_logs").insert({
+      actor_id: clerkId,
+      action: "booking.create",
+      entity: "booking",
+      entity_id: walkIn.id,
+      diff: { source: "walk_in" },
+    });
+    await b.from("audit_logs").insert({
+      actor_id: clerkId,
+      action: "payment.record",
+      entity: "booking",
+      entity_id: walkIn.id,
+      diff: { amount: 1500, method: "gcash" },
+    });
+    // Nothing asserts the order of these two, so one statement is fine.
     await b.from("audit_logs").insert([
-      {
-        actor_id: clerkId,
-        action: "booking.create",
-        entity: "booking",
-        entity_id: walkIn.id,
-        diff: { source: "walk_in" },
-      },
-      {
-        actor_id: clerkId,
-        action: "payment.record",
-        entity: "booking",
-        entity_id: walkIn.id,
-        diff: { amount: 1500, method: "gcash" },
-      },
       // A different booking's entry, to prove the scoping works.
       { actor_id: adminId, action: "booking.cancel", entity: "booking", entity_id: portal.id },
       // A non-booking entry the trail must never surface.
