@@ -317,3 +317,35 @@ Plans: `docs/superpowers/plans/`
   Result by role — admin 10 menu items, front desk 6, no-role 3, and every
   route returns 200 for every role (restricted ones render the panel).
   New `roles.test.ts` (6 unit). **134 total** (`npm run test:db`).
+- **Optional specific-room assignment — DONE** (migration `20260808000100`).
+  `fn_create_booking` always chose the room (first free of the type in label
+  order), so "the ground-floor one, please" meant book-then-reassign from the
+  manage dialog: two writes, two audit entries, and a moment where the guest
+  had been told a room number that was about to change. The function now takes
+  a trailing **`p_room_id uuid default null`** — signature is
+  `(name, phone, email, room_type_id, rate_tier_id, guest_count, check_in,
+  check_out, source, notes, status, room_id)`. Null keeps the old loop
+  verbatim; supplied, the room is validated (exists, belongs to the type, not
+  out of service) and inserted directly. Losing the exclusion-constraint race
+  on a **named** room is an ERROR ("Room 103 is already booked for those
+  dates"), never a silent fallback to a different room — honouring the type but
+  not the room is the one outcome that would make the feature worse than
+  useless. The auto-assign path still falls through to the next free room.
+  *UI*: the walk-in dialog gained a **Room** select defaulting to "Any free
+  room"; it and the live availability figure now come from ONE call
+  (`listFreeRooms` → `fn_available_rooms`) rather than two, because the count
+  is just the list's length and asking twice invited the answers to disagree.
+  A named room that stops being free while the clerk types falls back to "any"
+  with a note, rather than leaving a selection the server would only reject on
+  submit. `bookingSchema` carries `room_id` (optional, `""` = any) and the
+  action omits `p_room_id` entirely when empty — the parameter is `uuid`, so
+  `""` is a cast error rather than "no preference". `audit_logs` records
+  `room_chosen` so a human's choice is distinguishable from the auto-assign
+  (every booking has a `room_id` either way).
+  *The portal deliberately does NOT pass it*: a guest picking "205" builds an
+  expectation housekeeping may have to break, and exposes the floor plan.
+  **Trap**: adding the parameter minted a new function object, which Postgres
+  grants to `PUBLIC` at `CREATE FUNCTION` time — the migration carries its own
+  `revoke execute … from public, anon` and `bookings.test.mjs` now asserts anon
+  is still refused. See `20260726000600`. `bookings.test.mjs` +7 (17).
+  **149 total** (`npm run test:db`).

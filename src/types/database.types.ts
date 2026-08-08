@@ -566,6 +566,7 @@ export type Database = {
           p_guest_phone: string
           p_notes?: string
           p_rate_tier_id: string
+          p_room_id?: string
           p_room_type_id: string
           p_source: Database["booking"]["Enums"]["booking_source"]
           p_status?: Database["booking"]["Enums"]["booking_status"]

@@ -16,6 +16,9 @@ export const bookingSchema = z.object({
   guest_email: z.string().trim().email("Invalid email").optional().or(z.literal("")),
   room_type_id: z.string().uuid("Select a room type"),
   rate_tier_id: z.string().uuid("Select a rate"),
+  // Optional override. Empty means "any free room of this type", which is the
+  // default and lets fn_create_booking pick — see 20260808000100.
+  room_id: z.string().uuid().optional().or(z.literal("")),
   guest_count: z.coerce.number().int().min(1, "At least 1 guest").max(50),
   check_in: z.string().min(1, "Check-in is required"),
   check_out: z.string().optional().or(z.literal("")),

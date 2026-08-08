@@ -52,6 +52,9 @@ export async function createBooking(
       p_check_out: toIso(parsed.check_out || parsed.check_in),
       p_source: "walk_in",
       p_notes: parsed.notes || "",
+      // Omitted (not "") when the clerk didn't name a room: the parameter is
+      // uuid, so an empty string is a cast error rather than "no preference".
+      ...(parsed.room_id ? { p_room_id: parsed.room_id } : {}),
     });
 
     // fn_create_booking raises user-safe messages (no availability, invalid
@@ -70,7 +73,13 @@ export async function createBooking(
       action: "booking.create",
       entity: "booking",
       entityId: row.id,
-      diff: { source: "walk_in", room_type_id: parsed.room_type_id },
+      diff: {
+        source: "walk_in",
+        room_type_id: parsed.room_type_id,
+        // Records that a human chose the room, which the room_id on the booking
+        // alone can't say — every booking has one either way.
+        room_chosen: parsed.room_id ? parsed.room_id : null,
+      },
     });
 
     // Payment taken at the desk, in full. The amount is the row's own
@@ -115,26 +124,35 @@ export async function createBooking(
   }
 }
 
-export async function checkAvailability(
+// Which rooms of a type are free in a window — the walk-in dialog's live
+// availability figure AND the room picker come from this one call. It replaced
+// a `fn_count_available` action: the count is just this list's length, and
+// asking twice invited the two answers to disagree between round trips.
+export async function listFreeRooms(
   roomTypeId: string,
   checkInLocal: string,
   checkOutLocal: string
-): Promise<ActionResult<{ count: number }>> {
+): Promise<ActionResult<{ rooms: { id: string; label: string }[] }>> {
   try {
     await requireRole(["admin", "front_desk"]);
-    if (!roomTypeId || !checkInLocal || !checkOutLocal) return ok({ count: 0 });
+    if (!roomTypeId || !checkInLocal || !checkOutLocal) return ok({ rooms: [] });
     const checkIn = new Date(checkInLocal);
     const checkOut = new Date(checkOutLocal);
-    if (!(checkOut.getTime() > checkIn.getTime())) return ok({ count: 0 });
+    if (!(checkOut.getTime() > checkIn.getTime())) return ok({ rooms: [] });
 
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("fn_count_available", {
+    const { data, error } = await supabase.rpc("fn_available_rooms", {
       p_room_type_id: roomTypeId,
       p_check_in: checkIn.toISOString(),
       p_check_out: checkOut.toISOString(),
+      p_exclude_booking: undefined,
     });
     if (error) return fail(error.message);
-    return ok({ count: (data as number) ?? 0 });
+    const rooms = ((data as { id: string; label: string }[] | null) ?? []).map((r) => ({
+      id: r.id,
+      label: r.label,
+    }));
+    return ok({ rooms });
   } catch (err) {
     return toActionError(err);
   }

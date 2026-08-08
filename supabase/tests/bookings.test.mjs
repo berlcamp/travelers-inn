@@ -36,6 +36,9 @@ function book(client, opts) {
     p_check_out: opts.window[1],
     p_source: opts.source ?? "walk_in",
     p_notes: opts.notes ?? null,
+    // Only sent when a room was named: p_room_id is uuid, so "" is a cast
+    // error rather than "no preference", and omitting it takes the default.
+    ...(opts.roomId ? { p_room_id: opts.roomId } : {}),
   });
 }
 
@@ -234,6 +237,127 @@ async function main() {
     });
     assert.ok(error, "expected an error");
     assert.match(error.message, /after check-in/i);
+  });
+
+  // ---- optional specific-room assignment (migration 20260808000100) --------
+  // A type with three rooms, so "the one we asked for" is distinguishable from
+  // "whichever one the loop happened to reach first".
+  const trio = await createType(b, {
+    name: "Trio",
+    base: 2,
+    max: 2,
+    excess: 0,
+    rooms: 3,
+    tiers: [{ label: "Overnight", kind: "overnight", price: 900 }],
+  });
+  const { data: trioRooms } = await b
+    .from("rooms")
+    .select("id,label")
+    .eq("room_type_id", trio.typeId)
+    .order("label");
+  const TW = ["2026-09-01T14:00:00Z", "2026-09-02T12:00:00Z"];
+
+  await test("names a room and gets exactly that room", async () => {
+    // Deliberately the LAST room in label order: the auto-assign loop would
+    // have picked the first, so passing this proves the override took effect.
+    const wanted = trioRooms[2];
+    const { data, error } = await book(admin, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: TW,
+      roomId: wanted.id,
+    });
+    assert.equal(error, null, error?.message);
+    assert.equal(one(data).room_id, wanted.id, "should get the room it asked for");
+  });
+
+  await test("a taken room is refused rather than silently swapped", async () => {
+    // Two rooms of this type are still free, so the auto-assign path would
+    // happily succeed here — the point is that a named room must not fall back.
+    const { data, error } = await book(admin, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: TW,
+      roomId: trioRooms[2].id,
+    });
+    assert.ok(error, "expected an error");
+    assert.match(error.message, /already booked/i);
+    assert.equal(data, null);
+  });
+
+  await test("omitting the room still auto-assigns", async () => {
+    const { data, error } = await book(admin, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: TW,
+    });
+    assert.equal(error, null, error?.message);
+    assert.equal(one(data).room_id, trioRooms[0].id, "first free room in label order");
+  });
+
+  await test("a room of another type is refused", async () => {
+    const { data: other } = await b
+      .from("rooms")
+      .select("id")
+      .eq("room_type_id", couple.typeId)
+      .single();
+    const { error } = await book(admin, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: ["2026-09-05T14:00:00Z", "2026-09-06T12:00:00Z"],
+      roomId: other.id,
+    });
+    assert.ok(error, "expected an error");
+    assert.match(error.message, /not of the selected room type/i);
+  });
+
+  await test("an out-of-service room is refused", async () => {
+    await b.from("rooms").update({ status: "out_of_service" }).eq("id", trioRooms[1].id);
+    const { error } = await book(admin, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: ["2026-09-05T14:00:00Z", "2026-09-06T12:00:00Z"],
+      roomId: trioRooms[1].id,
+    });
+    assert.ok(error, "expected an error");
+    assert.match(error.message, /out of service/i);
+    await b.from("rooms").update({ status: "vacant" }).eq("id", trioRooms[1].id);
+  });
+
+  await test("a room id that doesn't exist is refused", async () => {
+    const { error } = await book(admin, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: ["2026-09-05T14:00:00Z", "2026-09-06T12:00:00Z"],
+      roomId: "00000000-0000-0000-0000-000000000000",
+    });
+    assert.ok(error, "expected an error");
+    assert.match(error.message, /does not exist/i);
+  });
+
+  await test("anon still cannot execute fn_create_booking", async () => {
+    // The added parameter minted a NEW function object, which Postgres grants
+    // to PUBLIC at creation time — see the migration's closing comment.
+    const { createClient } = await import("@supabase/supabase-js");
+    const { SUPABASE_URL, ANON_KEY } = await import("./_helpers.mjs");
+    const anon = createClient(SUPABASE_URL, ANON_KEY, {
+      db: { schema: "booking" },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { error } = await book(anon, {
+      typeId: trio.typeId,
+      tierId: trio.tiers["Overnight"],
+      guests: 2,
+      window: ["2026-09-09T14:00:00Z", "2026-09-10T12:00:00Z"],
+    });
+    assert.ok(error, "anon should be refused");
+    assert.match(error.message, /permission denied|not find the function/i);
   });
 
   await b.from("bookings").delete().not("id", "is", null);

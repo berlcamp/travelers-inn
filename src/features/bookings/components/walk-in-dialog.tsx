@@ -26,7 +26,7 @@ import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
 } from "@/features/bookings/payment-schema";
-import { createBooking, checkAvailability } from "@/features/bookings/actions";
+import { createBooking, listFreeRooms } from "@/features/bookings/actions";
 import { quote, peso, type RateTier } from "@/features/bookings/pricing";
 import type { RoomTypeWithTiers } from "@/features/rooms/repository";
 
@@ -57,6 +57,9 @@ function defaults(prefill?: WalkInPrefill): BookingFormValues {
     guest_email: "",
     room_type_id: "",
     rate_tier_id: "",
+    // Empty = let the server pick any free room of the type, which is what
+    // nearly every walk-in wants.
+    room_id: "",
     guest_count: 1,
     check_in: localDateTime(checkIn),
     check_out: localDateTime(checkOut),
@@ -66,6 +69,8 @@ function defaults(prefill?: WalkInPrefill): BookingFormValues {
     ...prefill,
   };
 }
+
+const ANY_ROOM_LABEL = "Any free room";
 
 const dtFmt = new Intl.DateTimeFormat("en-PH", {
   weekday: "short",
@@ -87,8 +92,9 @@ export function WalkInDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [available, setAvailable] = useState<number | null>(null);
+  const [freeRooms, setFreeRooms] = useState<{ id: string; label: string }[] | null>(null);
   const [checking, setChecking] = useState(false);
+  const available = freeRooms?.length ?? null;
 
   const form = useForm<BookingFormValues, unknown, BookingInput>({
     resolver: zodResolver(bookingSchema),
@@ -101,9 +107,9 @@ export function WalkInDialog({
     label: PAYMENT_METHOD_LABELS[m],
   }));
 
-  const [roomTypeId, rateTierId, guestCount, checkIn, checkOut] = useWatch({
+  const [roomTypeId, rateTierId, guestCount, checkIn, checkOut, roomId] = useWatch({
     control: form.control,
-    name: ["room_type_id", "rate_tier_id", "guest_count", "check_in", "check_out"],
+    name: ["room_type_id", "rate_tier_id", "guest_count", "check_in", "check_out", "room_id"],
   });
 
   const selectedType = roomTypes.find((t) => t.id === roomTypeId) ?? null;
@@ -162,13 +168,13 @@ export function WalkInDialog({
     const outIso = effectiveCheckOut ? localDateTime(effectiveCheckOut) : null;
     const handle = setTimeout(async () => {
       if (!roomTypeId || !checkIn || !outIso) {
-        if (!cancelled) setAvailable(null);
+        if (!cancelled) setFreeRooms(null);
         return;
       }
       if (!cancelled) setChecking(true);
-      const result = await checkAvailability(roomTypeId, checkIn, outIso);
+      const result = await listFreeRooms(roomTypeId, checkIn, outIso);
       if (!cancelled) {
-        setAvailable(result.ok ? result.data.count : 0);
+        setFreeRooms(result.ok ? result.data.rooms : []);
         setChecking(false);
       }
     }, 350);
@@ -177,6 +183,22 @@ export function WalkInDialog({
       clearTimeout(handle);
     };
   }, [open, roomTypeId, checkIn, effectiveCheckOut]);
+
+  // "Any free room" is a real option rather than a cleared select, so choosing
+  // it back is one click — Base UI's Select has no built-in way to unset.
+  const roomOptions = [
+    { value: "", label: ANY_ROOM_LABEL },
+    ...(freeRooms ?? []).map((r) => ({ value: r.id, label: `Room ${r.label}` })),
+  ];
+
+  // A named room can stop being free while the clerk is still typing, and the
+  // type/date fields can change under it. Falling back to "any" beats leaving a
+  // selection that the server will only reject on submit.
+  const chosenRoomGone =
+    !!roomId && freeRooms != null && !freeRooms.some((r) => r.id === roomId);
+  useEffect(() => {
+    if (chosenRoomGone) form.setValue("room_id", "");
+  }, [chosenRoomGone, form]);
 
   const priceError = priceQuote && "error" in priceQuote ? priceQuote.error : null;
   const totalDue = priceQuote && "total" in priceQuote ? priceQuote.total : null;
@@ -200,7 +222,7 @@ export function WalkInDialog({
         }
         setOpen(false);
         form.reset(defaults(prefill));
-        setAvailable(null);
+        setFreeRooms(null);
         router.refresh();
       } else {
         toast.error(result.error);
@@ -213,9 +235,9 @@ export function WalkInDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        // Drop the count on close so a reopened dialog never trusts a stale
-        // one; the effect above re-checks as soon as it is open again.
-        if (!next) setAvailable(null);
+        // Drop the room list on close so a reopened dialog never trusts a
+        // stale one; the effect above re-checks as soon as it is open again.
+        if (!next) setFreeRooms(null);
       }}
     >
       <DialogTrigger render={trigger} />
@@ -273,6 +295,19 @@ export function WalkInDialog({
               type="datetime-local"
             />
           ) : null}
+          <FormSelect
+            control={form.control}
+            name="room_id"
+            label="Room"
+            options={roomOptions}
+            placeholder={ANY_ROOM_LABEL}
+            disabled={!selectedType || !freeRooms || freeRooms.length === 0}
+            description={
+              chosenRoomGone
+                ? "That room was taken while you were typing — it's back to any free room."
+                : "Leave on “any free room” unless the guest asked for a particular one."
+            }
+          />
           <FormTextarea control={form.control} name="notes" label="Notes" rows={2} />
 
           <div className="flex flex-col gap-3 rounded-lg border p-3">
