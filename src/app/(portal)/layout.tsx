@@ -1,6 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Fraunces } from "next/font/google";
-import { BedDouble, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { getPublicSettings } from "@/features/settings/repository";
 import { isSet } from "@/features/settings/schemas";
 
@@ -25,9 +26,14 @@ export default async function PortalLayout({ children }: { children: React.React
       <header className="border-border sticky top-0 z-20 border-b bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
           <Link href="/" className="group flex items-center gap-3">
-            <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5">
-              <BedDouble className="size-5" />
-            </span>
+            <Image
+              src="/logo-mark.png"
+              alt=""
+              width={96}
+              height={96}
+              className="size-11 shrink-0"
+              priority
+            />
             <span className="flex flex-col leading-none">
               <span className="font-[family-name:var(--font-fraunces)] text-lg font-semibold tracking-tight">
                 Bañares Traveler&apos;s Inn
@@ -52,9 +58,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <footer className="border-border mt-8 border-t bg-[oklch(0.99_0.006_85)]">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <div className="flex items-center gap-3">
-            <span className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-lg">
-              <BedDouble className="size-4.5" />
-            </span>
+            <Image src="/logo-mark.png" alt="" width={80} height={80} className="size-10 shrink-0" />
             <div>
               <p className="font-[family-name:var(--font-fraunces)] text-foreground text-base font-semibold">
                 Bañares Traveler&apos;s Inn

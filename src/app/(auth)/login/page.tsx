@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { BedDouble, ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { GoogleSignInButton } from "@/features/auth/components/google-sign-in-button";
 import {
   Card,
@@ -31,9 +32,7 @@ export default async function LoginPage({
     <div className="flex flex-col gap-5">
       <Card className="w-full overflow-hidden rounded-2xl border-border/80 shadow-xl shadow-primary/5">
         <CardHeader className="items-center gap-3 pt-8 text-center">
-          <div className="bg-primary text-primary-foreground flex size-14 items-center justify-center rounded-2xl shadow-md ring-1 ring-black/5">
-            <BedDouble className="size-7" />
-          </div>
+          <Image src="/logo-mark.png" alt="" width={128} height={128} className="mx-auto size-16" priority />
           <div className="space-y-1.5">
             <CardTitle className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold tracking-tight">
               Bañares Traveler&apos;s Inn

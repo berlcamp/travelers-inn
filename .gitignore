@@ -14,3 +14,9 @@ tsconfig.tsbuildinfo
 login-page.png
 
 *.png
+
+# ...but brand assets are shipped files, not artifacts. Without these the logo
+# is absent from every deploy while still rendering locally.
+!public/*.png
+!src/app/icon.png
+!src/app/apple-icon.png

@@ -20,7 +20,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      {/* Light by default rather than following the OS: `ThemeToggle` only ever
+          sets "light" or "dark", so nothing could put the app back into
+          "system" once a staff member touched it — `enableSystem` was only ever
+          reachable as the untouched default, and that default is now light. */}
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem={false}
+        disableTransitionOnChange
+      >
         {children}
         <Toaster richColors position="top-right" />
       </ThemeProvider>

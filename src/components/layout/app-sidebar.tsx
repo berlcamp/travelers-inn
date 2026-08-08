@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BedDouble,
   CalendarDays,
   ChartColumn,
   ClipboardList,
@@ -117,8 +117,17 @@ export function AppSidebar({ roles }: { roles: UserRole[] }) {
     <Sidebar>
       <SidebarHeader>
         <div className="border-sidebar-border flex h-14 items-center gap-3 border-b px-4">
-          <div className="bg-sidebar-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
-            <BedDouble className="text-sidebar-primary-foreground size-4" />
+          {/* The mark is dark teal, so it needs a light ground to read against
+              the sidebar — which is dark in BOTH themes. */}
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white">
+            <Image
+              src="/logo-mark.png"
+              alt=""
+              width={64}
+              height={64}
+              className="size-6"
+              priority
+            />
           </div>
           <div className="min-w-0">
             <p className="text-sidebar-foreground truncate text-sm leading-tight font-bold tracking-wide">

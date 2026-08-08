@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { ArrowLeft } from "lucide-react";
@@ -73,7 +74,8 @@ export default async function RoomQrPage() {
                 dangerouslySetInnerHTML={{ __html: card.svg }}
               />
               <div className="text-xs font-medium">Scan to share your feedback</div>
-              <div className="text-[0.65rem] text-neutral-500">
+              <div className="flex items-center gap-1.5 text-[0.65rem] text-neutral-500">
+                <Image src="/logo-mark.png" alt="" width={32} height={32} className="size-4" />
                 Bañares Traveler&apos;s Inn
               </div>
             </div>
