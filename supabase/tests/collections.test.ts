@@ -46,7 +46,7 @@ function payment(over: Partial<ReportPayment> = {}): ReportPayment {
 }
 
 const DAY = { from: "2026-08-06", to: "2026-08-06" };
-const NO_FILTERS = { staffId: null, method: null };
+const NO_FILTERS = { staffId: null };
 
 console.log("collections report");
 
@@ -88,7 +88,7 @@ test("a receptionist's sheet holds what THEY received, not what they sold", () =
   const ray = computeCollectionsReport({
     ...DAY,
     payments,
-    filters: { staffId: "ray", method: null },
+    filters: { staffId: "ray" },
   });
   assert.equal(ray.total, 1500);
   assert.deepEqual(
@@ -175,7 +175,7 @@ test("a multi-day range reports every day, including the empty ones", () => {
   assert.equal(r.daily[2].nonCash, 400);
 });
 
-// ---- ordering + method filter ----------------------------------------------
+// ---- ordering ---------------------------------------------------------------
 
 test("transactions read oldest first — the order the shift happened", () => {
   const r = computeCollectionsReport({
@@ -193,20 +193,20 @@ test("transactions read oldest first — the order the shift happened", () => {
   );
 });
 
-test("the mode filter narrows every figure, not just the list", () => {
+test("the staff filter narrows every figure, not just the list", () => {
   const r = computeCollectionsReport({
     ...DAY,
     payments: [
-      payment({ id: "a", amount: 1000, method: "cash" }),
-      payment({ id: "b", amount: 250, method: "gcash" }),
+      payment({ id: "a", amount: 1000, method: "cash", recordedBy: "dana" }),
+      payment({ id: "b", amount: 250, method: "gcash", recordedBy: "ray" }),
     ],
-    filters: { staffId: null, method: "gcash" },
+    filters: { staffId: "ray" },
   });
   assert.equal(r.count, 1);
   assert.equal(r.total, 250);
-  assert.equal(r.cash, 0, "a GCash-only sheet has no cash to remit");
+  assert.equal(r.cash, 0, "Ray took no cash, so he has none to hand over");
   assert.equal(r.nonCash, 250);
-  assert.equal(r.daily[0].total, 250);
+  assert.equal(r.daily[0].total, 250, "the day totals follow the filter too");
 });
 
 test("an empty range is zeroes, not NaN", () => {

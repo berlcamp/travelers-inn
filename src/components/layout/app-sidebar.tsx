@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   Banknote,
   CalendarDays,
-  ChartColumn,
   ClipboardList,
   DoorOpen,
   LayoutDashboard,
@@ -71,7 +70,10 @@ const FRONT_DESK: NavItem[] = [
 // today. Filtered out entirely for front desk — a link that refuses to open
 // reads as a fault rather than as a boundary.
 const ADMIN: NavItem[] = [
-  { title: "Reports", href: "/reports", icon: ChartColumn, requires: ["admin"] },
+  // Reports is deliberately UNLISTED, not deleted: /reports still exists and
+  // still guards itself with pageRole(["admin"]), so a bookmark keeps working.
+  // Dropping the menu item only stops it being offered. Re-add it here — the
+  // page needs no other change.
   { title: "Room Types", href: "/room-types", icon: Tags, requires: ["admin"] },
   { title: "Staff", href: "/users", icon: Users, requires: ["admin"] },
   { title: "Settings", href: "/settings", icon: Settings, requires: ["admin"] },

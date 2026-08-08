@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveStaffNames } from "@/features/bookings/repository";
-import { PAYMENT_METHODS, type PaymentMethod } from "@/features/bookings/payment-schema";
 import {
   computeCollectionsReport,
   rangeBounds,
@@ -75,13 +74,6 @@ export async function getCollections(
     .gte("created_at", start.toISOString())
     .lt("created_at", end.toISOString());
   if (filters.staffId) query = query.eq("recorded_by", filters.staffId);
-  // `method` is a plain string on CollectionsFilters (analytics.ts stays free
-  // of imports so it can unit-test under --experimental-strip-types), so it is
-  // re-narrowed here against the enum. A value that isn't a payment_method
-  // would otherwise reach Postgres as a cast error rather than as "no match".
-  if (filters.method && (PAYMENT_METHODS as readonly string[]).includes(filters.method)) {
-    query = query.eq("method", filters.method as PaymentMethod);
-  }
 
   const { data } = await query.order("created_at");
   const rows = (data ?? []) as unknown as RawPayment[];
@@ -111,15 +103,4 @@ export async function getCollections(
   // unit tests exercise, and it must produce the same answer whether the rows
   // arrived pre-narrowed or not.
   return computeCollectionsReport({ from, to, payments, filters });
-}
-
-/**
- * The staff picker's options — admin only, because only an admin may look at
- * someone else's sheet. Deactivated staff are kept: last month's remittance has
- * to be able to name whoever was on the desk then, even if they've since left.
- */
-export async function listCollectionStaff(): Promise<{ id: string; name: string }[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("id, full_name").order("full_name");
-  return (data ?? []).map((p) => ({ id: p.id, name: p.full_name || "Unnamed staff" }));
 }

@@ -8,12 +8,11 @@ import { SectionCard } from "@/components/shared/section-card";
 import { BreakdownTable } from "@/features/reports/components/breakdown-table";
 import { METHOD_LABEL } from "@/features/reports/components/ledger-tables";
 import { isoDate } from "@/features/reports/analytics";
-import { getCollections, listCollectionStaff } from "@/features/collections/repository";
+import { getCollections } from "@/features/collections/repository";
 import { CollectionsFilters } from "@/features/collections/components/collections-filters";
 import { CollectionsLedger } from "@/features/collections/components/collections-ledger";
 import { CollectionsExport } from "@/features/collections/components/collections-export";
 import { PrintHeader, SignatureBlock } from "@/features/collections/components/remittance-slip";
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/features/bookings/payment-schema";
 import { peso } from "@/features/bookings/pricing";
 
 export const metadata: Metadata = { title: "Collections" };
@@ -40,7 +39,7 @@ function resolveRange(from?: string, to?: string): { from: string; to: string } 
 export default async function CollectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; staff?: string; method?: string }>;
+  searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const user = await pageRole(["admin", "front_desk"]);
   if (!user) return <AccessDenied requires={["admin", "front_desk"]} />;
@@ -49,27 +48,14 @@ export default async function CollectionsPage({
   const params = await searchParams;
   const { from, to } = resolveRange(params.from, params.to);
 
-  // Who this sheet is for. A receptionist always gets their OWN collections —
-  // `?staff=` is ignored for them rather than validated, so a hand-typed id
-  // can't turn the page into a view of a colleague's drawer. An admin may look
-  // at anyone, or at everybody at once.
-  const staff = isAdmin ? await listCollectionStaff() : [];
-  const staffId = isAdmin
-    ? staff.some((s) => s.id === params.staff)
-      ? (params.staff ?? null)
-      : null
-    : user.id;
+  // Who this sheet is for is decided by who is signed in, not by a control: a
+  // receptionist always gets their OWN collections, an admin always gets the
+  // whole desk. Nothing in the URL can change it, which is a stronger guarantee
+  // than the validated `?staff=` this replaced.
+  const staffId = isAdmin ? null : user.id;
+  const report = await getCollections(from, to, { staffId });
 
-  const method =
-    params.method && (PAYMENT_METHODS as readonly string[]).includes(params.method)
-      ? params.method
-      : null;
-
-  const report = await getCollections(from, to, { staffId, method });
-
-  const staffName = isAdmin
-    ? (staff.find((s) => s.id === staffId)?.name ?? null)
-    : user.fullName || "You";
+  const staffName = isAdmin ? null : user.fullName || "You";
   const scope = staffName ?? "All receptionists";
   const period =
     from === to
@@ -77,9 +63,6 @@ export default async function CollectionsPage({
       : `${fullDate.format(new Date(`${from}T00:00:00`))} – ${fullDate.format(
           new Date(`${to}T00:00:00`)
         )}`;
-  const methodLabel = method
-    ? PAYMENT_METHOD_LABELS[method as keyof typeof PAYMENT_METHOD_LABELS]
-    : null;
 
   // With no staff filter the sheet spans several drawers, so the ledger has to
   // name who took each payment and the by-receptionist split is the point of
@@ -96,7 +79,7 @@ export default async function CollectionsPage({
       <PageHeader
         className="print:hidden"
         title="Collections Report"
-        description={`${period} · ${scope}` + (methodLabel ? ` · ${methodLabel} only` : "")}
+        description={`${period} · ${scope}`}
         actions={
           <CollectionsExport
             payments={report.payments}
@@ -107,20 +90,9 @@ export default async function CollectionsPage({
         }
       />
 
-      <PrintHeader
-        period={period + (methodLabel ? ` · ${methodLabel} only` : "")}
-        scope={scope}
-        printedAt={new Date()}
-      />
+      <PrintHeader period={period} scope={scope} printedAt={new Date()} />
 
-      <CollectionsFilters
-        from={from}
-        to={to}
-        staffId={isAdmin ? staffId : null}
-        method={method}
-        staff={staff}
-        canPickStaff={isAdmin}
-      />
+      <CollectionsFilters from={from} to={to} />
 
       {/* Screen only. The two figures that matter on paper — cash and total —
           are restated beside the signatures, so printing these tiles too would

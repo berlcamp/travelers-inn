@@ -415,10 +415,17 @@ Plans: `docs/superpowers/plans/`
   exist for front desk without a new SECURITY DEFINER reader. Staff NAMES still
   come from `fn_staff_names` — `profiles` is self-only for front desk.
   *Range defaults to TODAY* (not month-to-date like `/reports`): a remittance
-  sheet is one shift. Presets are Today / Yesterday / Last 7 days / This month;
-  filters ride in the URL (`?from=&to=&staff=&method=`) so a sheet is
-  reloadable and shareable. Payment-mode filter narrows every figure, not just
-  the list.
+  sheet is one shift. **Dates are the ONLY control** — `?from=&to=` in the URL,
+  so a sheet stays reloadable and shareable. The receptionist picker, the
+  payment-mode select and the range presets were all removed on request; the
+  now-unreachable `method` plumbing went with them (`CollectionsFilters` is
+  just `{ staffId }`, and `listCollectionStaff` is gone) rather than being left
+  as a branch nothing can enter. **Consequence**: an admin now always sees the
+  whole desk on one sheet — the by-receptionist breakdown and the "Received by"
+  column still separate the drawers, but there is no longer a way to print ONE
+  named clerk's sheet. Front desk is unaffected, and its scoping is *stronger*
+  than before: whose sheet it is now follows purely from who is signed in, with
+  nothing in the URL that could change it.
   *Print* is the deliverable, and the printed sheet is a DIFFERENT document
   from the screen — it is three things only: `PrintHeader` (inn name, period,
   receptionist, timestamp), the **transactions table**, and `SignatureBlock`
@@ -473,6 +480,10 @@ Plans: `docs/superpowers/plans/`
   `SITE_URL` is now the www domain (the apex 308-redirects to it). QR codes
   already printed still work: the old host serves the same app.
   New `og-image.test.ts` (8 unit). **185 total** (`npm run test:db`).
+- **Reports unlisted from the sidebar** (no other change). `/reports` still
+  exists and still guards itself with `pageRole(["admin"])`, so bookmarks keep
+  working — only the menu item is gone. Re-add one line to `ADMIN` in
+  `app-sidebar.tsx` to bring it back; the page needs nothing.
   *Where the code lives*: the maths is `computeCollectionsReport` in
   **`features/reports/analytics.ts`**, not in the new feature — that file is
   the one module pure enough to unit-test under `--experimental-strip-types`,

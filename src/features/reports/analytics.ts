@@ -334,11 +334,9 @@ export function isCashMethod(method: string): boolean {
 export type CollectionsFilters = {
   /** Whose collections. Null = everyone, which only an admin ever sees. */
   staffId: string | null;
-  /** A payment_method to narrow to, or null for every mode. */
-  method: string | null;
 };
 
-export const NO_COLLECTION_FILTERS: CollectionsFilters = { staffId: null, method: null };
+export const NO_COLLECTION_FILTERS: CollectionsFilters = { staffId: null };
 
 export type CollectionDay = {
   date: string;
@@ -378,7 +376,6 @@ export function computeCollectionsReport<P extends ReportPayment>(input: {
   const received = input.payments
     .filter((p) => within(p.createdAt, start, end))
     .filter((p) => !filters.staffId || p.recordedBy === filters.staffId)
-    .filter((p) => !filters.method || p.method === filters.method)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   let cash = 0;
