@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -26,6 +26,16 @@ import {
 import { saveRoom } from "@/features/rooms/actions";
 import type { Room, RoomType } from "@/features/rooms/repository";
 
+function defaults(room?: Room): RoomFormValues {
+  return {
+    id: room?.id,
+    room_type_id: room?.room_type_id ?? "",
+    label: room?.label ?? "",
+    status: room?.status ?? "vacant",
+    notes: room?.notes ?? "",
+  };
+}
+
 export function RoomFormDialog({
   trigger,
   room,
@@ -41,14 +51,18 @@ export function RoomFormDialog({
 
   const form = useForm<RoomFormValues, unknown, RoomInput>({
     resolver: zodResolver(roomSchema),
-    defaultValues: {
-      id: room?.id,
-      room_type_id: room?.room_type_id ?? "",
-      label: room?.label ?? "",
-      status: room?.status ?? "vacant",
-      notes: room?.notes ?? "",
-    },
+    defaultValues: defaults(room),
   });
+
+  // Same reason as the room-type dialog: it stays mounted, so `defaultValues`
+  // (mount-only) would leave "Add room" pre-filled with the last room saved.
+  const seed = useRef(defaults(room));
+  useEffect(() => {
+    seed.current = defaults(room);
+  });
+  useEffect(() => {
+    if (open) form.reset(seed.current);
+  }, [open, form]);
 
   const typeOptions = roomTypes.map((t) => ({ value: t.id, label: t.name }));
   const statusOptions = ROOM_STATUSES.map((s) => ({ value: s, label: ROOM_STATUS_LABELS[s] }));
@@ -59,7 +73,6 @@ export function RoomFormDialog({
       if (result.ok) {
         toast.success(room ? "Room updated." : "Room created.");
         setOpen(false);
-        form.reset(values);
         router.refresh();
       } else {
         toast.error(result.error);

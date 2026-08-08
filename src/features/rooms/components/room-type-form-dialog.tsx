@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -83,6 +83,20 @@ export function RoomTypeFormDialog({
   });
 
   const tiers = useFieldArray({ control: form.control, name: "tiers" });
+
+  // `defaultValues` is only read on mount, and this dialog stays mounted between
+  // openings (its own trigger lives inside it), so without this the form would
+  // hand back whatever was last typed or last saved — "Add room type" would open
+  // pre-filled with the type just created. Re-seed on every open, off a ref so
+  // that `roomType` stays out of the deps: it's a fresh object after every
+  // router.refresh(), and depending on it would wipe an edit in progress.
+  const seed = useRef(defaults(roomType));
+  useEffect(() => {
+    seed.current = defaults(roomType);
+  });
+  useEffect(() => {
+    if (open) form.reset(seed.current);
+  }, [open, form]);
 
   function onSubmit(values: RoomTypeInput) {
     startTransition(async () => {
