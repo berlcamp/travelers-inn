@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable, includesValue } from "@/components/shared/data-table";
 import { RoomStatusSelect } from "./room-status-select";
 import { RoomFormDialog } from "./room-form-dialog";
+import { RoomDeleteButton } from "./room-delete-button";
 import type { RoomType, RoomWithType } from "@/features/rooms/repository";
 import { ROOM_STATUSES, ROOM_STATUS_LABELS, type RoomStatus } from "@/features/rooms/schemas";
 
@@ -48,7 +49,7 @@ export function RoomsTable({
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
           <RoomFormDialog
             room={row.original}
             roomTypes={roomTypes}
@@ -58,6 +59,7 @@ export function RoomsTable({
               </Button>
             }
           />
+          <RoomDeleteButton roomId={row.original.id} label={row.original.label} />
         </div>
       ),
     });

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { BedDouble, Search } from "lucide-react";
+import { BedDouble, CalendarRange, Search } from "lucide-react";
 import { pageRole } from "@/lib/auth/guards";
 import { AccessDenied } from "@/components/shared/access-denied";
-import { searchAvailability } from "@/features/bookings/repository";
+import { searchAvailability, type TypeAvailability } from "@/features/bookings/repository";
 import { listActiveRoomTypes } from "@/features/rooms/repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AvailabilitySearch } from "@/features/bookings/components/availability-search";
-import { AvailabilityResults } from "@/features/bookings/components/availability-results";
+import { AvailabilityResults, sellable } from "@/features/bookings/components/availability-results";
 
 export const metadata: Metadata = { title: "Availability" };
 
@@ -55,6 +55,14 @@ function resolveWindow(inRaw?: string, outRaw?: string) {
   return { checkIn, checkOut };
 }
 
+// 0 = has something to sell, 1 = right size but nothing free, 2 = can't take
+// the party at all. Array.prototype.sort is stable, so equal ranks hold their
+// original order.
+function rank(t: TypeAvailability): number {
+  if (sellable(t)) return 0;
+  return t.fits ? 1 : 2;
+}
+
 export default async function AvailabilityPage({
   searchParams,
 }: {
@@ -74,9 +82,14 @@ export default async function AvailabilityPage({
 
   const freeRooms = results.reduce((sum, t) => sum + t.freeRooms.length, 0);
   const totalRooms = results.reduce((sum, t) => sum + t.roomCount, 0);
-  const anyBookable = results.some(
-    (t) => t.fits && t.tiers.some((tier) => tier.free > 0 && tier.price != null)
-  );
+  const anyBookable = results.some(sellable);
+
+  // What the desk can sell comes first. The repository returns room types in
+  // the admin's own order, which puts a fully-booked type in the top-left slot
+  // as readily as a free one — and the clerk on the phone is reading top-left
+  // first. Ties keep that admin order, so the list stays stable between
+  // searches rather than reshuffling on every reload.
+  const ranked = [...results].sort((a, b) => rank(a) - rank(b));
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,19 +102,20 @@ export default async function AvailabilityPage({
         checkIn={localDateTime(checkIn)}
         checkOut={localDateTime(checkOut)}
         guests={guests}
+        summary={
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarRange className="size-3.5" />
+              <span className="tabular-nums">
+                {windowFmt.format(checkIn)} → {windowFmt.format(checkOut)}
+              </span>
+            </span>
+            <span className="text-foreground ml-auto font-semibold">
+              {freeRooms} of {totalRooms} room{totalRooms === 1 ? "" : "s"} free
+            </span>
+          </>
+        }
       />
-
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-sm">
-        <span className="text-foreground font-medium">
-          {freeRooms} of {totalRooms} room{totalRooms === 1 ? "" : "s"} free
-        </span>
-        <span>
-          · {windowFmt.format(checkIn)} → {windowFmt.format(checkOut)}
-        </span>
-        <span>
-          · {guests} guest{guests === 1 ? "" : "s"}
-        </span>
-      </div>
 
       {results.length === 0 ? (
         <EmptyState
@@ -119,7 +133,7 @@ export default async function AvailabilityPage({
             />
           ) : null}
           <AvailabilityResults
-            results={results}
+            results={ranked}
             roomTypes={roomTypes}
             checkIn={localDateTime(checkIn)}
             checkOut={localDateTime(checkOut)}

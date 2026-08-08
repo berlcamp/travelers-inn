@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Search } from "lucide-react";
+import { CalendarClock, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 // "YYYY-MM-DDTHH:mm" in local wall-clock — what datetime-local inputs speak and
 // what the booking actions read back (single-location inn, server local zone).
@@ -48,14 +49,28 @@ function nextSunday(hours: number): Date {
   return at(friday + 2, hours);
 }
 
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
+    >
+      {children}
+    </label>
+  );
+}
+
 export function AvailabilitySearch({
   checkIn,
   checkOut,
   guests,
+  summary,
 }: {
   checkIn: string;
   checkOut: string;
   guests: number;
+  /** The result line, rendered inside this panel's footer rule. */
+  summary?: React.ReactNode;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -75,64 +90,101 @@ export function AvailabilitySearch({
     );
   }
 
-  return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="in" className="text-muted-foreground text-xs">
-          Arrival
-        </label>
-        <Input
-          id="in"
-          type="datetime-local"
-          className="w-52"
-          value={draftIn}
-          onChange={(e) => setDraftIn(e.target.value)}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="out" className="text-muted-foreground text-xs">
-          Departure
-        </label>
-        <Input
-          id="out"
-          type="datetime-local"
-          className="w-52"
-          value={draftOut}
-          onChange={(e) => setDraftOut(e.target.value)}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="guests" className="text-muted-foreground text-xs">
-          Guests
-        </label>
-        <Input
-          id="guests"
-          type="number"
-          min={1}
-          max={50}
-          className="w-20"
-          value={draftGuests}
-          onChange={(e) => setDraftGuests(e.target.value)}
-        />
-      </div>
-      <Button disabled={pending} onClick={() => apply(draftIn, draftOut, draftGuests)}>
-        <Search className="size-4" />
-        {pending ? "Checking…" : "Check"}
-      </Button>
+  // A preset is "on" when the window on screen is the one it would set. Both
+  // sides are wall-clock strings, so this is a plain comparison — except
+  // Tonight, whose arrival is `now` after 1pm and so drifts by the minute.
+  const activePreset = presets().find(
+    (p) => localDateTime(p.checkIn) === checkIn && localDateTime(p.checkOut) === checkOut
+  )?.label;
 
-      <div className="flex flex-wrap gap-1.5">
-        {presets().map((p) => (
-          <Button
-            key={p.label}
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={() => apply(localDateTime(p.checkIn), localDateTime(p.checkOut), draftGuests)}
-          >
-            {p.label}
+  return (
+    <div className="border-border/60 bg-card rounded-xl border shadow-sm">
+      <form
+        // Enter anywhere in the panel runs the search: the desk types a date
+        // and expects an answer without reaching for the mouse.
+        onSubmit={(e) => {
+          e.preventDefault();
+          apply(draftIn, draftOut, draftGuests);
+        }}
+        className="flex flex-col gap-4 p-4"
+      >
+        {/* Flex rather than a grid: the two datetimes want the slack and the
+            guest count and button want only what they need, which grid
+            fractions can't express without fixing every column. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex min-w-52 flex-1 flex-col gap-1.5">
+            <FieldLabel htmlFor="in">Arrival</FieldLabel>
+            <Input
+              id="in"
+              type="datetime-local"
+              value={draftIn}
+              onChange={(e) => setDraftIn(e.target.value)}
+            />
+          </div>
+          <div className="flex min-w-52 flex-1 flex-col gap-1.5">
+            <FieldLabel htmlFor="out">Departure</FieldLabel>
+            <Input
+              id="out"
+              type="datetime-local"
+              value={draftOut}
+              onChange={(e) => setDraftOut(e.target.value)}
+            />
+          </div>
+          <div className="flex w-full flex-col gap-1.5 sm:w-24">
+            <FieldLabel htmlFor="guests">Guests</FieldLabel>
+            <Input
+              id="guests"
+              type="number"
+              min={1}
+              max={50}
+              value={draftGuests}
+              onChange={(e) => setDraftGuests(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+            <Search className="size-4" />
+            {pending ? "Checking…" : "Check"}
           </Button>
-        ))}
-      </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-muted-foreground mr-0.5 inline-flex items-center gap-1.5 text-xs">
+            <CalendarClock className="size-3.5" />
+            Quick windows
+          </span>
+          {presets().map((p) => {
+            const active = activePreset === p.label;
+            return (
+              <Button
+                key={p.label}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                aria-pressed={active}
+                className={cn(
+                  active && "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                )}
+                onClick={() =>
+                  apply(localDateTime(p.checkIn), localDateTime(p.checkOut), draftGuests)
+                }
+              >
+                {p.label}
+              </Button>
+            );
+          })}
+        </div>
+      </form>
+
+      {summary ? (
+        <div className="border-border/60 text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-3 text-sm">
+          <span className="inline-flex items-center gap-1.5">
+            <Users className="size-3.5" />
+            {guests} guest{guests === 1 ? "" : "s"}
+          </span>
+          {summary}
+        </div>
+      ) : null}
     </div>
   );
 }

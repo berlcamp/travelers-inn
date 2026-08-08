@@ -137,6 +137,74 @@ async function main() {
     assert.equal(data.status, "cleaning");
   });
 
+  // ---- Deleting a room ------------------------------------------------------
+  // Only admin, and only a room nothing references. The FK from bookings is
+  // ON DELETE RESTRICT, which is what actually protects booking history —
+  // deleteRoom's pre-check only exists to phrase the refusal.
+
+  async function spareRoom(label) {
+    const { data, error } = await svc
+      .from("rooms")
+      .insert({ room_type_id: typeId, label })
+      .select("id")
+      .single();
+    assert.equal(error, null, error?.message);
+    return data.id;
+  }
+
+  await test("front_desk cannot delete a room", async () => {
+    const id = await spareRoom("901");
+    const { error } = await desk.from("rooms").delete().eq("id", id);
+    // The staff policy covers UPDATE only, so the row is simply invisible to
+    // this DELETE — Postgres reports success having removed nothing, which is
+    // why the room's survival is the assertion rather than the error.
+    assert.equal(error, null, error?.message);
+    const { data } = await svc.from("rooms").select("id").eq("id", id).maybeSingle();
+    assert.ok(data, "front desk must not be able to delete a room");
+    await svc.from("rooms").delete().eq("id", id);
+  });
+
+  await test("admin deletes a room that has never been booked", async () => {
+    const id = await spareRoom("902");
+    const { data, error } = await admin.from("rooms").delete().eq("id", id).select("id");
+    assert.equal(error, null, error?.message);
+    assert.equal(data.length, 1, "the delete should report the row it removed");
+    const { data: gone } = await svc.from("rooms").select("id").eq("id", id).maybeSingle();
+    assert.equal(gone, null, "the room should be gone");
+  });
+
+  await test("a room with booking history cannot be deleted", async () => {
+    const id = await spareRoom("903");
+    const { error: bookErr } = await svc.from("bookings").insert({
+      guest_name: "Held Booking",
+      room_type_id: typeId,
+      room_id: id,
+      period: "[2026-09-01 14:00+08,2026-09-02 12:00+08)",
+      quoted_total: 1800,
+    });
+    assert.equal(bookErr, null, bookErr?.message);
+
+    const { error } = await admin.from("rooms").delete().eq("id", id);
+    assert.ok(error, "the FK should refuse the delete");
+    assert.equal(error.code, "23503", `expected a FK violation, got ${error.code}`);
+    const { data } = await svc.from("rooms").select("id").eq("id", id).maybeSingle();
+    assert.ok(data, "the room must survive so its booking still resolves");
+
+    await svc.from("bookings").delete().eq("room_id", id);
+    await svc.from("rooms").delete().eq("id", id);
+  });
+
+  await test("deleting a room takes its guest feedback with it", async () => {
+    const id = await spareRoom("904");
+    const { error: fbErr } = await svc.from("feedback").insert({ room_id: id, rating: 5 });
+    assert.equal(fbErr, null, fbErr?.message);
+
+    const { error } = await admin.from("rooms").delete().eq("id", id);
+    assert.equal(error, null, error?.message);
+    const { data } = await svc.from("feedback").select("id").eq("room_id", id);
+    assert.equal(data.length, 0, "feedback should cascade — deleteRoom warns about this");
+  });
+
   await test("anonymous visitor can read room types + tiers (portal inventory)", async () => {
     const anon = createClient(SUPABASE_URL, ANON_KEY, { db: { schema: "booking" } });
     const { data, error } = await anon

@@ -307,6 +307,72 @@ export async function saveRoom(input: unknown): Promise<ActionResult<{ id: strin
   }
 }
 
+const ROOM_IN_USE =
+  "This room has booking history, so it can't be deleted — that would destroy the bookings. " +
+  "Set its status to Out of service instead.";
+
+// Hard delete, admin only (front desk may only change housekeeping status).
+//
+// `bookings.room_id` is ON DELETE RESTRICT, so a room that has ever been booked
+// simply cannot be removed — that's the guarantee, and it's the database's, not
+// this function's. The count query below exists only to turn a raw FK violation
+// into a sentence a receptionist can act on; a booking inserted between the
+// count and the delete still trips 23503, which maps to the same message. So
+// this is really "delete a room created by mistake", which is the only delete
+// that can't lose history.
+//
+// `feedback.room_id` is ON DELETE CASCADE, so guest feedback left for the room
+// goes with it. That's flagged in the confirm dialog and the count is recorded
+// in the audit entry, since the rows themselves won't be there to count later.
+export async function deleteRoom(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireRole(["admin"]);
+    const supabase = await createClient();
+
+    const { data: room, error: roomError } = await supabase
+      .from("rooms")
+      .select("label")
+      .eq("id", id)
+      .maybeSingle();
+    if (roomError) return fail(roomError.message);
+    if (!room) return fail("That room no longer exists.");
+
+    const { count: bookingCount, error: countError } = await supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", id);
+    if (countError) return fail(countError.message);
+    if ((bookingCount ?? 0) > 0) return fail(ROOM_IN_USE);
+
+    const { count: feedbackCount } = await supabase
+      .from("feedback")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", id);
+
+    // `.select()` on the delete so a row the RLS policy declines to touch is
+    // reported instead of returning "deleted" for a no-op.
+    const { data: deleted, error } = await supabase
+      .from("rooms")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (error) return fail(error.code === "23503" ? ROOM_IN_USE : error.message);
+    if (!deleted || deleted.length === 0) return fail("That room could not be deleted.");
+
+    await logAudit({
+      actorId: user.id,
+      action: "room.delete",
+      entity: "room",
+      entityId: id,
+      diff: { label: room.label, feedback_deleted: feedbackCount ?? 0 },
+    });
+    revalidatePath("/rooms");
+    return ok({ id });
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
 // Housekeeping status change — allowed for front desk too.
 export async function updateRoomStatus(
   id: string,
