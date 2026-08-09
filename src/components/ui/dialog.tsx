@@ -7,8 +7,46 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+/**
+ * Reasons that mean "the user closed this by accident": a click that landed
+ * beside the popup, or an Escape reflex. Base UI spells them kebab-case.
+ */
+const ACCIDENTAL_CLOSE: ReadonlySet<string> = new Set([
+  "escape-key",
+  "outside-press",
+  "focus-out",
+])
+
+/**
+ * Dialogs here close only through an explicit control — the X, a Close/Cancel
+ * button, or the form's own save handler. Stray clicks on the backdrop and
+ * Escape are ignored, because most of these dialogs are half-filled forms
+ * (walk-in booking, record payment, deposit verification) and losing one to a
+ * misplaced click means re-typing the guest's details in front of them.
+ *
+ * Every dialog keeps its close button (`showCloseButton` defaults to true), so
+ * there is always a visible way out. Pass `allowDismiss` for a dialog that has
+ * no such control and would otherwise trap the user.
+ */
+function Dialog({
+  onOpenChange,
+  allowDismiss = false,
+  ...props
+}: DialogPrimitive.Root.Props & { allowDismiss?: boolean }) {
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      {...props}
+      disablePointerDismissal={!allowDismiss}
+      onOpenChange={(open, details) => {
+        if (!allowDismiss && !open && ACCIDENTAL_CLOSE.has(details.reason)) {
+          details.cancel()
+          return
+        }
+        onOpenChange?.(open, details)
+      }}
+    />
+  )
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

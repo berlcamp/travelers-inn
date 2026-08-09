@@ -42,7 +42,10 @@ function CommandDialog({
   children: React.ReactNode;
 }) {
   return (
-    <Dialog {...props}>
+    // A command palette defaults to no close button and is dismissed by
+    // Escape, so it opts out of the app-wide "buttons only" rule rather than
+    // becoming a modal with no way out. See ui/dialog.tsx.
+    <Dialog allowDismiss {...props}>
       <DialogHeader className="sr-only">
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>

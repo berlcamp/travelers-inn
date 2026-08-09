@@ -6,8 +6,25 @@ import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+/**
+ * Same rule as Dialog: only Cancel or the confirm action closes this. Base UI's
+ * alert dialog already ignores outside presses, so Escape is the one left to
+ * block. Every AlertDialogFooter carries a Cancel, so nobody is trapped.
+ */
+function AlertDialog({ onOpenChange, ...props }: AlertDialogPrimitive.Root.Props) {
+  return (
+    <AlertDialogPrimitive.Root
+      data-slot="alert-dialog"
+      {...props}
+      onOpenChange={(open, details) => {
+        if (!open && (details.reason === "escape-key" || details.reason === "focus-out")) {
+          details.cancel()
+          return
+        }
+        onOpenChange?.(open, details)
+      }}
+    />
+  )
 }
 
 function AlertDialogTrigger({ ...props }: AlertDialogPrimitive.Trigger.Props) {
