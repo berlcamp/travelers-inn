@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, DoorOpen } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { peso } from "@/features/bookings/pricing";
+import { RoomNumberBox } from "./room-number-box";
 import type { BookingRow } from "@/features/bookings/repository";
 
 const dt = new Intl.DateTimeFormat("en-PH", {
@@ -69,17 +70,10 @@ export function BookingConfirmedDialog({
 
             <div className="flex flex-col gap-4">
               {/* The one thing the guest is waiting to hear. */}
-              <div className="border-border/60 bg-muted/40 flex flex-col items-center gap-1 rounded-xl border p-5 text-center">
-                <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase">
-                  <DoorOpen className="size-3.5" /> Room
-                </span>
-                <span className="text-4xl leading-none font-bold tabular-nums">
-                  {booking.room?.label ?? "—"}
-                </span>
-                {booking.room_type?.name ? (
-                  <span className="text-muted-foreground text-sm">{booking.room_type.name}</span>
-                ) : null}
-              </div>
+              <RoomNumberBox
+                label={booking.room?.label ?? null}
+                typeName={booking.room_type?.name ?? null}
+              />
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <Line

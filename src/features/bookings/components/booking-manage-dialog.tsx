@@ -31,6 +31,7 @@ import { peso } from "@/features/bookings/pricing";
 import { type BookingStatus } from "@/features/bookings/schemas";
 import { PAYMENT_METHOD_LABELS } from "@/features/bookings/payment-schema";
 import { BookingConfirmedDialog } from "./booking-confirmed-dialog";
+import { RoomNumberBox } from "./room-number-box";
 import type { BookingDetail, BookingRow } from "@/features/bookings/repository";
 
 const dt = new Intl.DateTimeFormat("en-PH", {
@@ -109,6 +110,11 @@ export function BookingManageDialog({
   const b = detail?.booking;
   const status = b?.status as BookingStatus | undefined;
   const balance = detail ? Number(b!.quoted_total) - detail.paid : 0;
+  // The room is only a place the guest walks into while the stay is live. Once
+  // it's checked out, cancelled or a no-show the room has been freed, so a
+  // headline room number would be telling the clerk something untrue.
+  const stayIsLive =
+    status === "pending_verification" || status === "confirmed" || status === "checked_in";
 
   return (
     <>
@@ -128,6 +134,32 @@ export function BookingManageDialog({
             <p className="text-muted-foreground py-8 text-center text-sm">Booking not found.</p>
           ) : (
             <div className="flex flex-col gap-4">
+              {/* The number the clerk reads out loud, so it leads the dialog.
+                The reassign select sits directly under it and refreshes this
+                detail on success, which is what makes the box redraw the
+                moment a guest is moved — the two can never disagree. */}
+              {stayIsLive ? (
+                <div className="flex flex-col gap-2">
+                  <RoomNumberBox label={b.room?.label ?? null} />
+                  {detail.availableRooms.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground text-xs">Change room</span>
+                      <ReassignRoomSelect
+                        bookingId={b.id}
+                        currentRoomId={b.room_id}
+                        rooms={detail.availableRooms}
+                        onDone={refresh}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground text-xs">Assigned room</span>
+                  <span className="font-medium">Room {b.room?.label ?? "—"}</span>
+                </div>
+              )}
+
               {/* Summary */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <Field
@@ -161,24 +193,6 @@ export function BookingManageDialog({
                     <Field label="Verified on" value={b.verified_at ? fmt(b.verified_at) : "—"} />
                   </>
                 ) : null}
-              </div>
-
-              {/* Assigned room (reassignable when active) */}
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs">Assigned room</span>
-                {detail.availableRooms.length > 0 &&
-                (status === "pending_verification" ||
-                  status === "confirmed" ||
-                  status === "checked_in") ? (
-                  <ReassignRoomSelect
-                    bookingId={b.id}
-                    currentRoomId={b.room_id}
-                    rooms={detail.availableRooms}
-                    onDone={refresh}
-                  />
-                ) : (
-                  <span className="font-medium">Room {b.room?.label ?? "—"}</span>
-                )}
               </div>
 
               {status === "pending_verification" ? (
