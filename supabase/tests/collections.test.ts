@@ -41,6 +41,7 @@ function payment(over: Partial<ReportPayment> = {}): ReportPayment {
     createdAt: at(2026, 8, 6, 15),
     recordedBy: "dana",
     recordedByName: "Dana Desk",
+    bookingStatus: "confirmed",
     ...over,
   };
 }
@@ -207,6 +208,39 @@ test("the staff filter narrows every figure, not just the list", () => {
   assert.equal(r.cash, 0, "Ray took no cash, so he has none to hand over");
   assert.equal(r.nonCash, 250);
   assert.equal(r.daily[0].total, 250, "the day totals follow the filter too");
+});
+
+test("a cancelled booking's money is off the sheet — it went back to the guest", () => {
+  const r = computeCollectionsReport({
+    ...DAY,
+    payments: [
+      payment({ id: "a", amount: 1000, method: "cash" }),
+      payment({ id: "b", amount: 600, method: "cash", bookingStatus: "cancelled" }),
+      payment({ id: "c", amount: 250, method: "gcash", bookingStatus: "cancelled" }),
+    ],
+    filters: NO_FILTERS,
+  });
+  assert.equal(r.cash, 1000, "the drawer does not hold the refunded 600");
+  assert.equal(r.nonCash, 0);
+  assert.equal(r.total, 1000);
+  assert.equal(r.count, 1);
+  assert.equal(r.payments.length, 1, "and the transaction list matches the total");
+  assert.equal(r.daily[0].total, 1000);
+  assert.deepEqual(
+    r.cancelledExcluded,
+    { count: 2, amount: 850 },
+    "named on the sheet: a clerk short by exactly this needs to see why"
+  );
+});
+
+test("a no-show's money stays on the sheet — the guest forfeited it", () => {
+  const r = computeCollectionsReport({
+    ...DAY,
+    payments: [payment({ amount: 500, method: "cash", bookingStatus: "no_show" })],
+    filters: NO_FILTERS,
+  });
+  assert.equal(r.cash, 500);
+  assert.equal(r.cancelledExcluded.count, 0);
 });
 
 test("an empty range is zeroes, not NaN", () => {

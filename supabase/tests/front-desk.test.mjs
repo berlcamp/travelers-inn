@@ -146,6 +146,85 @@ async function main() {
     assert.ok(error, "expected an exclusion-constraint violation");
   });
 
+  // ---- the actual check-out time ------------------------------------------
+  // A booked check-out is a plan (noon for an overnight tier, check-in +
+  // duration for a block). front-desk-actions.checkOut replaces it with the
+  // moment staff pressed the button, writing status and period in ONE update.
+  // These tests pin the DB behaviour that shape depends on.
+
+  const STAY = ["2026-08-10T14:00:00Z", "2026-08-12T12:00:00Z"];
+  const { data: staying } = await admin.rpc("fn_create_booking", {
+    p_guest_name: "Late Leaver",
+    p_guest_phone: "",
+    p_guest_email: "",
+    p_room_type_id: dbl.id,
+    p_rate_tier_id: dblTier.id,
+    p_guest_count: 2,
+    p_check_in: STAY[0],
+    p_check_out: STAY[1],
+    p_source: "walk_in",
+    p_notes: "",
+  });
+  const stay = one(staying);
+  await b.from("bookings").update({ status: "checked_in" }).eq("id", stay.id);
+
+  // The next guest holds the SAME room from 14:00 on the day this one is due
+  // out — the awkward case an overstay runs into.
+  await admin.rpc("fn_create_booking", {
+    p_guest_name: "Next Guest",
+    p_guest_phone: "",
+    p_guest_email: "",
+    p_room_type_id: dbl.id,
+    p_rate_tier_id: dblTier.id,
+    p_guest_count: 2,
+    p_check_in: "2026-08-12T14:00:00Z",
+    p_check_out: "2026-08-13T12:00:00Z",
+    p_source: "walk_in",
+    p_notes: "",
+    p_status: "confirmed",
+    p_room_id: stay.room_id,
+  });
+
+  const OVERSTAY = `["${STAY[0]}","2026-08-12T15:30:00Z")`;
+
+  await test("extending a still-checked-in stay into the next booking is refused", async () => {
+    const { error } = await b.from("bookings").update({ period: OVERSTAY }).eq("id", stay.id);
+    assert.ok(error, "the double-booking guarantee must still hold while they are in-house");
+  });
+
+  await test("checking out stamps the real time, even past the next booking's start", async () => {
+    // Status and period move together: `no_overlap` only indexes
+    // confirmed/checked_in/pending_verification, so the row leaves the
+    // constraint in the same statement that extends it. Splitting this into
+    // two updates would make a late check-out fail.
+    const { error } = await b
+      .from("bookings")
+      .update({ status: "checked_out", period: OVERSTAY })
+      .eq("id", stay.id);
+    assert.equal(error, null, error?.message);
+
+    const { data } = await b.from("bookings").select("status, period").eq("id", stay.id).single();
+    assert.equal(data.status, "checked_out");
+    const upper = data.period.match(/,\s*"?([^",]*)"?\s*[\])]/)[1];
+    assert.equal(
+      new Date(upper).toISOString(),
+      new Date("2026-08-12T15:30:00Z").toISOString(),
+      "the stay now ends when the guest actually left"
+    );
+    const lower = data.period.match(/[[(]\s*"?([^",]*)"?\s*,/)[1];
+    assert.equal(new Date(lower).toISOString(), new Date(STAY[0]).toISOString(), "arrival is untouched");
+  });
+
+  await test("a check-out before check-in would be an empty range, and is refused", async () => {
+    // Why actualStayWindow() returns null instead: this is what the DB does
+    // with the alternative, and it would fail the whole check-out.
+    const { error } = await b
+      .from("bookings")
+      .update({ period: `["${STAY[0]}","2026-08-09T10:00:00Z")` })
+      .eq("id", stay.id);
+    assert.ok(error, "bookings_period_valid must reject it");
+  });
+
   await b.from("payments").delete().not("id", "is", null);
   await b.from("bookings").delete().not("id", "is", null);
   await b.from("rooms").delete().not("id", "is", null);

@@ -7,7 +7,8 @@ import { logAudit } from "@/lib/audit";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
 import { paymentSchema } from "./payment-schema";
 import { peso } from "./pricing";
-import { getBookingWithPayments, type BookingDetail } from "./repository";
+import { actualStayWindow } from "./stay-window";
+import { getBookingWithPayments, parsePeriod, type BookingDetail } from "./repository";
 
 function revalidateBookings() {
   revalidatePath("/bookings");
@@ -32,20 +33,45 @@ async function transition(
   from: string,
   to: "checked_in" | "checked_out" | "no_show",
   roomStatus: "occupied" | "cleaning" | null,
-  action: string
+  action: string,
+  /** Replace the booked check-out with the moment this ran. Only check-out
+   *  passes it: that transition is the one that learns something the booking
+   *  could only estimate. */
+  stampActualCheckOut = false
 ): Promise<ActionResult<{ id: string }>> {
   const user = await requireRole(["admin", "front_desk"]);
   const supabase = await createClient();
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, status, room_id")
+    .select("id, status, room_id, period")
     .eq("id", id)
     .maybeSingle();
   if (!booking) return fail("Booking not found.");
   if (booking.status !== from) return fail(`Booking is not ${from.replace("_", " ")}.`);
 
-  const { error } = await supabase.from("bookings").update({ status: to }).eq("id", id);
+  const update: { status: typeof to; period?: string } = { status: to };
+  const diff: Record<string, unknown> = { to };
+
+  if (stampActualCheckOut) {
+    const { checkIn, checkOut } = parsePeriod((booking as { period: string }).period);
+    const actual = actualStayWindow(checkIn, new Date());
+    // Only when it actually moved: re-writing the same window would put a
+    // meaningless "left early/late" line in the activity trail.
+    if (actual && actual.checkOut !== new Date(checkOut).toISOString()) {
+      update.period = actual.period;
+      // The booked window is overwritten, so the trail carries what it was —
+      // otherwise "due out at noon, left at 4pm" becomes unanswerable.
+      diff.scheduled_check_out = checkOut;
+      diff.actual_check_out = actual.checkOut;
+    }
+  }
+
+  // Status and period move in ONE statement. `no_overlap` only indexes
+  // confirmed/checked_in/pending_verification rows, so a guest who overstays
+  // into the next booking's window still checks out: the row leaves the
+  // constraint in the same update that extends it.
+  const { error } = await supabase.from("bookings").update(update).eq("id", id);
   if (error) return fail(error.message);
 
   // Sync the room's housekeeping status with the stay lifecycle.
@@ -53,7 +79,7 @@ async function transition(
     await supabase.from("rooms").update({ status: roomStatus }).eq("id", booking.room_id);
   }
 
-  await logAudit({ actorId: user.id, action, entity: "booking", entityId: id, diff: { to } });
+  await logAudit({ actorId: user.id, action, entity: "booking", entityId: id, diff });
   revalidateBookings();
   return ok({ id });
 }
@@ -68,7 +94,10 @@ export async function checkIn(id: string): Promise<ActionResult<{ id: string }>>
 
 export async function checkOut(id: string): Promise<ActionResult<{ id: string }>> {
   try {
-    return await transition(id, "checked_in", "checked_out", "cleaning", "booking.check_out");
+    // The booked check-out is a plan — derived for a block tier, standard noon
+    // for an overnight one. Checking the guest out is when the real time is
+    // known, so it replaces it (the previous one survives in the audit trail).
+    return await transition(id, "checked_in", "checked_out", "cleaning", "booking.check_out", true);
   } catch (err) {
     return toActionError(err);
   }

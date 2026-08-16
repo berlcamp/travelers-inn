@@ -116,7 +116,19 @@ export default async function CollectionsPage({
           label="Total collected"
           value={peso.format(report.total)}
           icon={Coins}
-          hint={singleDay ? "For this day" : "For this range"}
+          // A cancellation hands the money back, so it leaves this figure. Say
+          // so: an unexplained drop is how a clerk ends up recounting a drawer
+          // that was right all along.
+          hint={
+            report.cancelledExcluded.count > 0
+              ? `Excludes ${peso.format(report.cancelledExcluded.amount)} refunded on ` +
+                `${report.cancelledExcluded.count} cancelled booking${
+                  report.cancelledExcluded.count === 1 ? "" : "s"
+                }`
+              : singleDay
+                ? "For this day"
+                : "For this range"
+          }
         />
         <StatCard
           label="Transactions"
@@ -170,7 +182,11 @@ export default async function CollectionsPage({
         <CollectionsLedger payments={report.payments} showStaff={allStaff} singleDay={singleDay} />
       </SectionCard>
 
-      <SignatureBlock cash={report.cash} total={report.total} />
+      <SignatureBlock
+        cash={report.cash}
+        total={report.total}
+        cancelledExcluded={report.cancelledExcluded}
+      />
     </div>
   );
 }

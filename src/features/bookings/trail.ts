@@ -33,6 +33,19 @@ function money(value: unknown): string | null {
   return Number.isFinite(n) ? peso.format(n) : null;
 }
 
+const whenFmt = new Intl.DateTimeFormat("en-PH", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+function when(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : whenFmt.format(d);
+}
+
 export type TrailDescription = { label: string; detail: string | null };
 
 // An unknown action falls back to its raw name rather than being hidden: a
@@ -58,6 +71,17 @@ export function describeTrailEntry(action: string, diff: unknown): TrailDescript
       const amount = money(d.amount);
       const reference = typeof d.reference === "string" && d.reference ? d.reference : null;
       return { label, detail: [amount, reference].filter(Boolean).join(" · ") || null };
+    }
+    case "booking.check_out": {
+      // Check-out overwrites the booked window with the real one, so this is
+      // the only place the booked time survives. Only present when it moved.
+      const scheduled = when(d.scheduled_check_out);
+      if (!scheduled) return { label, detail: null };
+      const late =
+        typeof d.actual_check_out === "string" &&
+        typeof d.scheduled_check_out === "string" &&
+        new Date(d.actual_check_out) > new Date(d.scheduled_check_out);
+      return { label, detail: `${late ? "Late" : "Early"} — was due ${scheduled}` };
     }
     case "booking.verify_reject": {
       const reason = typeof d.reason === "string" && d.reason ? d.reason : null;

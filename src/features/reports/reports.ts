@@ -13,7 +13,14 @@ export type RptBooking = {
   roomTypeName: string;
 };
 
-export type RptPayment = { amount: number; createdAt: string; bookingId: string };
+export type RptPayment = {
+  amount: number;
+  createdAt: string;
+  bookingId: string;
+  /** Status of the booking it settles. A cancelled booking's money went back
+   *  to the guest, so it is not revenue — see countsAsRevenue below. */
+  bookingStatus: string;
+};
 
 export type DashboardInput = {
   now: Date;
@@ -44,6 +51,15 @@ export type DashboardData = {
 // scoped to "confirmed" only.
 const ACTIVE = ["pending_verification", "confirmed", "checked_in"];
 const OCCUPYING = ["pending_verification", "confirmed", "checked_in", "checked_out"];
+// Cancelling hands the money back, so a payment on a cancelled booking is not
+// revenue. A no-show is NOT here: that money was forfeited, not returned.
+// Duplicated from analytics.ts `countsAsRevenue` on purpose — this module stays
+// import-free so it runs under `node --experimental-strip-types`; keep the two
+// in step.
+const REFUNDED = ["cancelled"];
+function countsAsRevenue(p: RptPayment): boolean {
+  return !REFUNDED.includes(p.bookingStatus);
+}
 const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "short" });
 
 function startOfDay(d: Date): Date {
@@ -100,7 +116,9 @@ export function computeDashboard(input: DashboardInput): DashboardData {
   const roomsOccupiedTonight = occupiedRooms.size;
   const occupancyPct = roomsTotal ? Math.round((100 * roomsOccupiedTonight) / roomsTotal) : 0;
 
-  const revenueToday = payments
+  const earned = payments.filter(countsAsRevenue);
+
+  const revenueToday = earned
     .filter((p) => sameDay(new Date(p.createdAt), now))
     .reduce((acc, p) => acc + p.amount, 0);
 
@@ -117,7 +135,7 @@ export function computeDashboard(input: DashboardInput): DashboardData {
   const days = Array.from({ length: 7 }, (_, i) => addDays(now, i - 6));
 
   const revenueByDay = days.map((day) =>
-    payments
+    earned
       .filter((p) => sameDay(new Date(p.createdAt), day))
       .reduce((acc, p) => acc + p.amount, 0)
   );

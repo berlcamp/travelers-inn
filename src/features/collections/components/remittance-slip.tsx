@@ -46,9 +46,27 @@ export function PrintHeader({
  * purpose: a signed sheet whose total lives only on the previous page proves
  * nothing about how much changed hands.
  */
-export function SignatureBlock({ cash, total }: { cash: number; total: number }) {
+export function SignatureBlock({
+  cash,
+  total,
+  cancelledExcluded,
+}: {
+  cash: number;
+  total: number;
+  /** Refunded on cancellations, so absent from both figures above and from the
+   *  transaction list. Printed when non-zero: the person signing for the cash
+   *  is entitled to know why the sheet is short of the day's takings. */
+  cancelledExcluded?: { count: number; amount: number };
+}) {
+  const refunded = cancelledExcluded && cancelledExcluded.count > 0 ? cancelledExcluded : null;
   return (
     <div className="hidden break-inside-avoid print:mt-3 print:block">
+      {refunded ? (
+        <p className="mb-1 text-[8px] text-neutral-500">
+          Excludes {peso.format(refunded.amount)} received then refunded on {refunded.count}{" "}
+          cancelled booking{refunded.count === 1 ? "" : "s"}.
+        </p>
+      ) : null}
       <div className="mb-2 flex justify-end gap-8 text-xs">
         <div className="text-right">
           <p className="text-[8px] text-neutral-500 uppercase">Total collected</p>

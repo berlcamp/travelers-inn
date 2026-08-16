@@ -96,7 +96,14 @@ export default async function ReportsPage({
             label="Collected"
             value={peso.format(f.collected)}
             icon={Coins}
-            hint={`${f.paymentCount} payment${f.paymentCount === 1 ? "" : "s"} received`}
+            // Money taken back out by a cancellation is named rather than left
+            // as an unexplained gap between this figure and the day's takings.
+            hint={
+              f.cancelledExcluded.count > 0
+                ? `${f.paymentCount} payment${f.paymentCount === 1 ? "" : "s"} · ` +
+                  `${peso.format(f.cancelledExcluded.amount)} refunded on cancellations, excluded`
+                : `${f.paymentCount} payment${f.paymentCount === 1 ? "" : "s"} received`
+            }
           />
           <StatCard
             label="Booked revenue"

@@ -35,6 +35,7 @@ type RawPayment = {
     reference_code: string;
     guest_name: string;
     source: string;
+    status: string;
     room: { label: string } | null;
     room_type: { name: string } | null;
   } | null;
@@ -48,7 +49,7 @@ type RawPayment = {
 // self-only for front desk (it carries emails).
 const COLLECTION_SELECT =
   "id, booking_id, amount, method, reference, created_at, recorded_by, " +
-  "booking:bookings(reference_code, guest_name, source, room:rooms(label), room_type:room_types(name))";
+  "booking:bookings(reference_code, guest_name, source, status, room:rooms(label), room_type:room_types(name))";
 
 /**
  * Collections received in [from, to] (both inclusive dates), narrowed by
@@ -91,6 +92,8 @@ export async function getCollections(
     roomLabel: p.booking?.room?.label ?? "",
     roomTypeName: p.booking?.room_type?.name ?? "",
     source: p.booking?.source ?? "",
+    // A hidden booking (see above) reads as "" — counted, never dropped.
+    bookingStatus: p.booking?.status ?? "",
     amount: Number(p.amount),
     method: p.method,
     reference: p.reference,

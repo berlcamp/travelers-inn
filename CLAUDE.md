@@ -499,3 +499,43 @@ Plans: `docs/superpowers/plans/`
   holds what they RECEIVED, the day window includes 23:50, anon is refused, a
   deactivated clerk loses both the ledger and `fn_staff_names`).
   **177 total** (`npm run test:db`).
+- **Cancelled money leaves revenue + check-out stamps the real time — DONE**
+  (no migration).
+  *Revenue*: a payment against a **cancelled** booking is no longer counted
+  anywhere — dashboard "Revenue today" and its 7-day bars, `/reports`
+  Collected (and its by-mode / by-staff / by-day breakdowns and the payments
+  ledger), and the `/collections` remittance sheet, cash included. Cancelling
+  hands the money back, so counting it reports revenue the inn no longer has
+  and a drawer that isn't there. **`no_show` deliberately still counts**: that
+  guest forfeited what they paid. `analytics.ts` therefore carries TWO lists —
+  `VOID` (`cancelled` + `no_show`, "was this booking worth anything?", which
+  already gated booked revenue) and the new `REFUNDED` (`cancelled` only, "did
+  the inn keep the cash?") behind `countsAsRevenue(bookingStatus)`;
+  `reports.ts` repeats the predicate locally because that module stays
+  import-free to run under `--experimental-strip-types`. `ReportPayment` /
+  `RptPayment` gained `bookingStatus`, resolved in the repositories — the
+  dashboard **embeds** `booking:bookings(status)` on the payments query
+  because its bookings query fetches only OCCUPYING statuses, so a cancelled
+  booking would never be there to match. An unresolvable status is `""` and
+  **counts**: silently losing money is the worse failure. The excluded figure
+  is reported, never merely subtracted — `cancelledExcluded {count, amount}`
+  surfaces in the Collected hint, the Total-collected tile, and the printed
+  signature block, so a short drawer has a stated reason. `cancelBooking` now
+  revalidates `/calendar` and `/dashboard` too.
+  *Actual check-out*: a booked check-out is a PLAN (block = check-in +
+  `duration_hours`, which already crosses midnight correctly — 17:00 + 12h is
+  05:00 the next day in both `pricing.ts` and `fn_create_booking`; overnight =
+  standard noon). `checkOut` now replaces it with the moment staff pressed the
+  button: `features/bookings/stay-window.ts` `actualStayWindow()` (pure,
+  import-free) builds the new `period`, and `transition()` writes **status and
+  period in ONE update** — `no_overlap` only indexes
+  confirmed/checked_in/pending_verification, so a guest who overstays into the
+  next booking's window still checks out; two separate updates would fail.
+  A check-out at or before check-in (checked in early, left before the booked
+  hour) returns null and the booked window stands — the alternative is an empty
+  range that `bookings_period_valid` rejects, failing the whole check-out. The
+  booked window is overwritten, so it survives in `audit_logs`
+  (`scheduled_check_out` / `actual_check_out`) and the activity trail reads
+  "Checked out · Late — was due 12:00". Price is untouched: no late-checkout
+  charge is derived. New tests: `stay-window.test.ts` (5 unit) +
+  `front-desk.test.mjs` +3 (10). **200 total** (`npm run test:db`).

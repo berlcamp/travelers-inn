@@ -44,6 +44,11 @@ export type ReportPayment = {
   createdAt: string;
   recordedBy: string | null;
   recordedByName: string | null;
+  /** The status of the booking this payment settles — money on a CANCELLED
+   *  booking is not revenue and is not in the drawer (see countsAsRevenue).
+   *  Empty when the booking couldn't be resolved, which counts as revenue:
+   *  the failure mode of a missing status must never be silently lost money. */
+  bookingStatus: string;
 };
 
 export type Bucket = { key: string; label: string; count: number; amount: number };
@@ -94,6 +99,32 @@ const OCCUPYING = ["pending_verification", "confirmed", "checked_in", "checked_o
 const ACTIVE = ["pending_verification", "confirmed", "checked_in"];
 // Bookings whose value never materialised — excluded from booked revenue.
 const VOID = ["cancelled", "no_show"];
+
+// Statuses whose money goes back to the guest, so any payment against them
+// stops being revenue AND stops being cash to remit.
+//
+// `no_show` is deliberately NOT here, though it is VOID above: a no-show guest
+// forfeits what they paid, so the inn keeps the money even though the stay is
+// worth nothing. The two lists answer different questions — VOID is "was this
+// booking worth anything?", this is "did the inn keep the cash?".
+const REFUNDED = ["cancelled"];
+
+/** Does a payment against a booking in this status still count as money in? */
+export function countsAsRevenue(bookingStatus: string): boolean {
+  return !REFUNDED.includes(bookingStatus);
+}
+
+/** Money received in the range that a later cancellation took back out of it.
+ *  Reported rather than silently dropped: a figure that shrinks with no
+ *  explanation is how a clerk ends up recounting a drawer that was right. */
+export type ExcludedTotal = { count: number; amount: number };
+
+function excludedTotal(payments: ReportPayment[]): ExcludedTotal {
+  return {
+    count: payments.length,
+    amount: payments.reduce((acc, p) => acc + p.amount, 0),
+  };
+}
 
 const DAY_MS = 86_400_000;
 const DAY_LABEL = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric" });
@@ -225,6 +256,9 @@ export type FinancialReport = {
   voidedValue: number;
   outstanding: number;
   payments: ReportPayment[];
+  /** Received in the range but on bookings since cancelled — out of every
+   *  figure above, named here so the omission is visible. */
+  cancelledExcluded: ExcludedTotal;
 };
 
 export function computeFinancialReport(input: FinancialInput): FinancialReport {
@@ -241,10 +275,14 @@ export function computeFinancialReport(input: FinancialInput): FinancialReport {
     (!filters.staffId || p.recordedBy === filters.staffId) &&
     (!filters.roomTypeId || typeOfBooking.get(p.bookingId) === filters.roomTypeId);
 
-  // Cash clock: payments received inside the range.
-  const received = input.payments
+  // Cash clock: payments received inside the range. A payment whose booking
+  // has since been cancelled is dropped from every figure below — the guest
+  // got that money back, so counting it would report revenue the inn no longer
+  // has. (A no-show still counts: that money was forfeited, not returned.)
+  const inRange = input.payments
     .filter((p) => within(p.createdAt, start, end) && paymentMatches(p))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const received = inRange.filter((p) => countsAsRevenue(p.bookingStatus));
   const collected = received.reduce((acc, p) => acc + p.amount, 0);
 
   const byMethod = bucketize(
@@ -301,6 +339,7 @@ export function computeFinancialReport(input: FinancialInput): FinancialReport {
     voidedValue,
     outstanding,
     payments: received,
+    cancelledExcluded: excludedTotal(inRange.filter((p) => !countsAsRevenue(p.bookingStatus))),
   };
 }
 
@@ -360,6 +399,10 @@ export type CollectionsReport<P extends ReportPayment = ReportPayment> = {
   byMethod: Bucket[];
   byStaff: Bucket[];
   daily: CollectionDay[];
+  /** Taken during the shift but on bookings since cancelled — refunded, so not
+   *  in the drawer. Off the sheet's totals, but named on it: a clerk whose
+   *  drawer is short by exactly this figure needs to see it. */
+  cancelledExcluded: ExcludedTotal;
 };
 
 // Generic over the payment row so callers can carry extra display fields (room
@@ -373,10 +416,14 @@ export function computeCollectionsReport<P extends ReportPayment>(input: {
   const { start, end, days } = rangeBounds(input.from, input.to);
   const filters = input.filters ?? NO_COLLECTION_FILTERS;
 
-  const received = input.payments
+  const inRange = input.payments
     .filter((p) => within(p.createdAt, start, end))
     .filter((p) => !filters.staffId || p.recordedBy === filters.staffId)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  // Cancelling a booking hands the money back, so it is not part of what this
+  // shift turns over — the sheet has to match the drawer, not the day's
+  // takings before the refund.
+  const received = inRange.filter((p) => countsAsRevenue(p.bookingStatus));
 
   let cash = 0;
   let nonCash = 0;
@@ -426,6 +473,7 @@ export function computeCollectionsReport<P extends ReportPayment>(input: {
     byMethod,
     byStaff,
     daily,
+    cancelledExcluded: excludedTotal(inRange.filter((p) => !countsAsRevenue(p.bookingStatus))),
   };
 }
 

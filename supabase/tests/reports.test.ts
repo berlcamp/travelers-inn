@@ -56,8 +56,10 @@ const bookings: RptBooking[] = [
 ];
 
 const payments: RptPayment[] = [
-  { bookingId: "b1", amount: 500, createdAt: at(0, 9) }, // today
-  { bookingId: "b3", amount: 1500, createdAt: at(-2, 9) }, // 2 days ago
+  { bookingId: "b1", amount: 500, createdAt: at(0, 9), bookingStatus: "confirmed" }, // today
+  { bookingId: "b3", amount: 1500, createdAt: at(-2, 9), bookingStatus: "checked_in" }, // 2 days ago
+  // Paid today, then cancelled — refunded, so it is not revenue.
+  { bookingId: "b4", amount: 900, createdAt: at(0, 10), bookingStatus: "cancelled" },
 ];
 
 const d = computeDashboard({ now, roomIds, bookings, payments });
@@ -85,6 +87,22 @@ test("occupancy tonight = rooms with active booking overlapping tonight", () => 
 
 test("revenue today sums today's payments", () => {
   assert.equal(d.revenueToday, 500);
+});
+
+test("a payment on a cancelled booking is not revenue", () => {
+  // b4 paid 900 today and was cancelled — the guest got it back.
+  assert.equal(d.revenueToday, 500, "the cancelled 900 is out of today's revenue");
+  assert.equal(d.revenue7d[6].value, 500, "and out of the 7-day series too");
+});
+
+test("a payment on a no-show booking IS revenue — it was forfeited", () => {
+  const one = computeDashboard({
+    now,
+    roomIds,
+    bookings,
+    payments: [{ bookingId: "b9", amount: 700, createdAt: at(0, 9), bookingStatus: "no_show" }],
+  });
+  assert.equal(one.revenueToday, 700);
 });
 
 test("outstanding sums unpaid balance of active bookings", () => {

@@ -171,6 +171,12 @@ export async function cancelBooking(id: string): Promise<ActionResult<{ id: stri
       entityId: id,
     });
     revalidatePath("/bookings");
+    // A cancellation frees the room AND takes its money back out of revenue
+    // (analytics.countsAsRevenue), so the calendar and the dashboard are stale
+    // the moment it happens. /reports and /collections read the URL, so they
+    // are dynamic and re-run anyway.
+    revalidatePath("/calendar");
+    revalidatePath("/dashboard");
     return ok({ id });
   } catch (err) {
     return toActionError(err);

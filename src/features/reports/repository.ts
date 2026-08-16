@@ -32,7 +32,11 @@ export async function getDashboardData(): Promise<DashboardData> {
       .in("status", ["pending_verification", "confirmed", "checked_in", "checked_out"]),
     supabase
       .from("payments")
-      .select("amount, created_at, booking_id")
+      // The booking's status is embedded rather than looked up in `bookings`
+      // above: that query fetches only OCCUPYING statuses, so a payment on a
+      // cancelled booking would have nothing to match against and would keep
+      // counting as revenue.
+      .select("amount, created_at, booking_id, booking:bookings(status)")
       .gte("created_at", since.toISOString()),
   ]);
 
@@ -60,6 +64,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     amount: Number(p.amount),
     createdAt: p.created_at,
     bookingId: p.booking_id,
+    bookingStatus: (p as typeof p & { booking: { status: string } | null }).booking?.status ?? "",
   }));
 
   return computeDashboard({
@@ -250,6 +255,9 @@ export async function getReportData(
     // a payment settling an old checked-out stay has none of those.
     bookingRef: bookingById.get(p.booking_id)?.referenceCode ?? "—",
     guestName: bookingById.get(p.booking_id)?.guestName ?? "—",
+    // "" means the booking couldn't be resolved, which counts as revenue —
+    // dropping money because a row was missing is the worse failure.
+    bookingStatus: bookingById.get(p.booking_id)?.status ?? "",
     amount: Number(p.amount),
     method: p.method,
     reference: p.reference,

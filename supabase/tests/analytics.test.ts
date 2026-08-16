@@ -71,6 +71,7 @@ function payment(over: Partial<ReportPayment> = {}): ReportPayment {
     createdAt: at(2026, 8, 5, 15),
     recordedBy: "staff-1",
     recordedByName: "Dana Desk",
+    bookingStatus: "confirmed",
     ...over,
   };
 }
@@ -173,6 +174,50 @@ test("collections group by payment mode and by the staff who received them", () 
   const dana = r.byStaff.find((b) => b.key === "s1");
   assert.equal(dana?.amount, 1400);
   assert.equal(dana?.count, 2);
+});
+
+test("money on a cancelled booking is out of every collected figure", () => {
+  const r = computeFinancialReport({
+    ...RANGE,
+    payments: [
+      payment({ id: "kept", amount: 500, method: "cash", bookingStatus: "checked_out" }),
+      payment({ id: "refunded", amount: 900, method: "cash", bookingStatus: "cancelled" }),
+    ],
+    bookings: [],
+    paidByBooking: new Map(),
+  });
+  assert.equal(r.collected, 500, "the cancelled booking's money went back to the guest");
+  assert.equal(r.paymentCount, 1);
+  assert.equal(r.byMethod[0].amount, 500, "and out of the breakdowns");
+  assert.equal(r.byStaff[0].amount, 500);
+  assert.equal(r.daily.reduce((acc, day) => acc + day.value, 0), 500, "and out of the day series");
+  assert.equal(r.payments.length, 1, "and off the ledger it would otherwise print on");
+  assert.deepEqual(
+    r.cancelledExcluded,
+    { count: 1, amount: 900 },
+    "but reported, so the gap is never unexplained"
+  );
+});
+
+test("money on a no-show booking still counts — it was forfeited, not returned", () => {
+  const r = computeFinancialReport({
+    ...RANGE,
+    payments: [payment({ amount: 600, bookingStatus: "no_show" })],
+    bookings: [],
+    paidByBooking: new Map(),
+  });
+  assert.equal(r.collected, 600);
+  assert.equal(r.cancelledExcluded.count, 0);
+});
+
+test("a payment whose booking could not be resolved still counts", () => {
+  const r = computeFinancialReport({
+    ...RANGE,
+    payments: [payment({ amount: 300, bookingStatus: "" })],
+    bookings: [],
+    paidByBooking: new Map(),
+  });
+  assert.equal(r.collected, 300, "a missing status must never silently lose money");
 });
 
 test("a payment with no recorder is reported as unattributed, never dropped", () => {
