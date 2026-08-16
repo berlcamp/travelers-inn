@@ -7,6 +7,7 @@ import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result"
 import { portalBookingWithProofSchema } from "./schemas";
 import { getPortalPaymentInfo, PROOF_BUCKET } from "./repository";
 import { depositFor } from "@/features/bookings/deposit";
+import { checkOutAtNoon } from "@/features/bookings/pricing";
 
 const MAX_NIGHTS = 30;
 const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -53,10 +54,13 @@ export async function createPortalBookingWithProof(
     startOfToday.setHours(0, 0, 0, 0);
     if (checkIn < startOfToday) return fail("Please choose a future date.");
 
-    // Overnight stays send a check-out; blocks derive it server-side.
+    // Overnight stays send a check-out; blocks derive it server-side. The hour
+    // is not the guest's to choose — an overnight is due out at noon, so the
+    // form's value is snapped here rather than trusted (the form already sends
+    // noon; a hand-crafted POST need not).
     let checkOutISO = checkIn.toISOString();
     if (parsed.check_out) {
-      const checkOut = new Date(parsed.check_out);
+      const checkOut = checkOutAtNoon(new Date(parsed.check_out));
       if (Number.isNaN(checkOut.getTime())) return fail("Please choose a valid check-out date.");
       if (checkOut <= checkIn) return fail("Check-out must be after check-in.");
       if (checkOut.getTime() - checkIn.getTime() > MAX_NIGHTS * 86_400_000) {

@@ -26,7 +26,7 @@ import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/features/bookings/paym
 import { createBooking, listFreeRooms } from "@/features/bookings/actions";
 import { loadBookingDetail } from "@/features/bookings/front-desk-actions";
 import { BookingConfirmedDialog } from "./booking-confirmed-dialog";
-import { quote, peso, type RateTier } from "@/features/bookings/pricing";
+import { quote, peso, checkOutValue, type RateTier } from "@/features/bookings/pricing";
 import type { RoomTypeWithTiers } from "@/features/rooms/repository";
 import type { BookingRow } from "@/features/bookings/repository";
 
@@ -34,6 +34,23 @@ import type { BookingRow } from "@/features/bookings/repository";
 function localDateTime(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// The check-out field holds a DATE only: an overnight stay is due out at noon
+// (pricing.checkOutValue), so there is no hour for the desk to choose. Prefill
+// arriving from the availability page is a datetime-local string, hence the
+// slice rather than a plain pass-through.
+function dateOnly(value: string) {
+  return value.slice(0, 10);
+}
+
+/** The earliest check-out the desk can pick: the day after arrival. Stops a
+ *  same-day overnight, which would price a night the guest never sleeps. */
+function nightAfter(checkIn: string) {
+  const d = new Date(checkIn);
+  if (Number.isNaN(d.getTime())) return undefined;
+  d.setDate(d.getDate() + 1);
+  return dateOnly(localDateTime(d));
 }
 
 // What the availability page hands over when staff press "Book" on a result,
@@ -50,8 +67,7 @@ function defaults(prefill?: WalkInPrefill): BookingFormValues {
   checkIn.setHours(13, 0, 0, 0);
   const checkOut = new Date(checkIn);
   checkOut.setDate(checkOut.getDate() + 1);
-  checkOut.setHours(12, 0, 0, 0);
-  return {
+  const merged: BookingFormValues = {
     guest_name: "",
     guest_phone: "",
     guest_email: "",
@@ -62,12 +78,15 @@ function defaults(prefill?: WalkInPrefill): BookingFormValues {
     room_id: "",
     guest_count: 1,
     check_in: localDateTime(checkIn),
-    check_out: localDateTime(checkOut),
+    check_out: dateOnly(localDateTime(checkOut)),
     notes: "",
     payment_method: "cash",
     payment_reference: "",
     ...prefill,
   };
+  // Prefill comes from the availability search as a datetime-local string;
+  // this field is a date input, which renders empty for anything else.
+  return { ...merged, check_out: dateOnly(merged.check_out ?? "") };
 }
 
 const ANY_ROOM_LABEL = "Any free room";
@@ -151,7 +170,9 @@ export function WalkInDialog({
       },
       Number(guestCount) || 0,
       new Date(checkIn),
-      isBlock ? null : checkOut ? new Date(checkOut) : null
+      // checkOutValue turns the field's date into local noon — parsing the
+      // bare "YYYY-MM-DD" would read it as UTC midnight, a day early here.
+      isBlock ? null : checkOut ? new Date(checkOutValue(checkOut)) : null
     );
   }, [selectedType, selectedTier, guestCount, checkIn, checkOut, isBlock]);
 
@@ -307,11 +328,14 @@ export function WalkInDialog({
               />
             </div>
             {!isBlock ? (
+              // A date, not a datetime: an overnight guest is due out at noon,
+              // so offering an hour would be offering a choice that isn't one.
               <FormInput
                 control={form.control}
                 name="check_out"
-                label="Check-out"
-                type="datetime-local"
+                label="Check-out (12:00 noon)"
+                type="date"
+                min={nightAfter(checkIn)}
               />
             ) : null}
             <FormSelect
@@ -365,9 +389,10 @@ export function WalkInDialog({
             <SummaryPanel
               checking={checking}
               available={available}
-              derivedCheckout={
-                isBlock && effectiveCheckOut ? dtFmt.format(effectiveCheckOut) : null
-              }
+              // Shown for both kinds now: the block derives its end from the
+              // duration, the overnight from the house noon, and in each case
+              // it is the time the clerk tells the guest.
+              derivedCheckout={effectiveCheckOut ? dtFmt.format(effectiveCheckOut) : null}
               priceLine={
                 priceError
                   ? priceError

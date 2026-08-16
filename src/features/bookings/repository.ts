@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database.types";
 import { listActiveRoomTypes, listRoomsWithType } from "@/features/rooms/repository";
-import { quote, type TierKind } from "./pricing";
+import { quote, checkOutAtNoon, type TierKind } from "./pricing";
 
 type BookingBase = Database["booking"]["Tables"]["bookings"]["Row"];
 
@@ -251,11 +251,14 @@ export async function searchAvailability(
       const tiers = await Promise.all(
         t.rate_tiers.map(async (tier): Promise<TierAvailability> => {
           // The window is a property of the tier, not of the search: a block
-          // ends duration_hours after arrival whatever check-out was typed.
+          // ends duration_hours after arrival whatever check-out was typed,
+          // and an overnight ends at noon on the searched check-out date
+          // whatever hour was typed. Both come back from quote() below, so the
+          // card shows the window the booking will actually get.
           const tierOut =
             tier.kind === "block"
               ? new Date(checkIn.getTime() + (tier.duration_hours ?? 0) * 3_600_000)
-              : checkOut;
+              : checkOutAtNoon(checkOut);
           const q = quote(
             {
               id: tier.id,
@@ -269,11 +272,12 @@ export async function searchAvailability(
             checkIn,
             tierOut
           );
-          // An overnight tier spans exactly the searched window, so the room
-          // list already fetched above answers it — only blocks, which end
-          // earlier, need a count of their own.
+          // The room list already fetched above answers any tier whose window
+          // IS the searched one; a block ends earlier, and an overnight whose
+          // hour was snapped to noon ends elsewhere too, so those are counted
+          // over their own window rather than assumed.
           const free =
-            tier.kind === "overnight"
+            tierOut.getTime() === checkOut.getTime()
               ? freeRooms.length
               : await countAvailable(t.id, checkIn, tierOut);
           return {

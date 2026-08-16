@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
 import { bookingSchema } from "./schemas";
+import { checkOutValue } from "./pricing";
 
 // datetime-local strings carry no timezone; new Date() reads them in the
 // server's local zone. For a single-location inn that is the intended behavior
@@ -48,8 +49,10 @@ export async function createBooking(
       p_guest_count: parsed.guest_count,
       p_check_in: toIso(parsed.check_in),
       // Blocks derive check-out server-side; pass check-in as a harmless
-      // placeholder when the form left it empty.
-      p_check_out: toIso(parsed.check_out || parsed.check_in),
+      // placeholder when the form left it empty. An overnight check-out is
+      // snapped to noon (checkOutValue) so the RPC prices the same window the
+      // form previewed — the form sends a date, the hour is the house rule.
+      p_check_out: toIso(parsed.check_out ? checkOutValue(parsed.check_out) : parsed.check_in),
       p_source: "walk_in",
       p_notes: parsed.notes || "",
       // Omitted (not "") when the clerk didn't name a room: the parameter is

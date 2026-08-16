@@ -539,3 +539,31 @@ Plans: `docs/superpowers/plans/`
   "Checked out · Late — was due 12:00". Price is untouched: no late-checkout
   charge is derived. New tests: `stay-window.test.ts` (5 unit) +
   `front-desk.test.mjs` +3 (10). **200 total** (`npm run test:db`).
+- **Overnight stays are due out at 12:00 noon — DONE** (no migration). A block
+  tier derived its check-out; an overnight one used whatever hour the desk
+  happened to type, so the same one-night stay could end at 08:00 or 19:30 and
+  a 15:00 check-out silently priced TWO nights (`ceil(25h / 24h)`). The hour is
+  now the house rule, not a choice: `pricing.ts` `checkOutAtNoon()` snaps it
+  **before** the nights maths, so `quote()` always returns a derived check-out
+  for both kinds. Every caller sends that same snapped value to
+  `fn_create_booking` — `createBooking` via `checkOutValue()` (string form:
+  `"YYYY-MM-DD"` or `"…THH:mm"` → `"…T12:00"`), the portal action via
+  `checkOutAtNoon()` (its form already sent noon; a hand-crafted POST need
+  not) — so **no migration was needed**: the SQL runs its unchanged
+  `ceil(ms/24h)` over the same window the preview priced, and the two agree by
+  construction rather than by coincidence.
+  *UI*: the walk-in dialog's check-out is now `type="date"` labelled
+  "Check-out (12:00 noon)" with `min` = the day after arrival — offering an
+  hour would be offering a choice that isn't one, and a same-day pick prices a
+  night nobody sleeps. Prefill from the availability page is a datetime-local
+  string, so `defaults()` slices it (`dateOnly`), and the field is parsed back
+  through `checkOutValue` — `new Date("2026-08-18")` is UTC midnight, which is
+  the previous day in Manila. The summary panel's "Checks out …" line now shows
+  for both tier kinds. `searchAvailability` snaps each overnight tier's window
+  the same way, and the free count only reuses the searched room list when the
+  tier's window IS the searched one (it now falls through to `countAvailable`
+  for a snapped overnight, as it already did for blocks).
+  *Leaving earlier is a different fact*: the booked window stays noon and
+  check-out stamps the real time over it (see the entry above). Tests are local
+  wall-clock (`at()`), because "out by noon" is a wall-clock rule:
+  `pricing.test.ts` +6 (11). **206 total** (`npm run test:db`).
