@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database.types";
 import { listActiveRoomTypes, listRoomsWithType } from "@/features/rooms/repository";
 import { quote, checkOutAtNoon, type TierKind } from "./pricing";
+import { sortForFrontDesk } from "./booking-order";
 
 type BookingBase = Database["booking"]["Tables"]["bookings"]["Row"];
 
@@ -79,14 +80,22 @@ export async function resolveStaffNames(
 
 // The bookings list shows who handled each booking, so it resolves names in one
 // extra round-trip for the whole page rather than per row.
+//
+// It also re-orders for the desk (sortForFrontDesk: in-house, then arriving
+// soonest, then history). That happens HERE and not in listBookings, because
+// listBookings also feeds the calendar, where a row's position decides which
+// booking wins a cell when two overlap — the grid has no reason to inherit a
+// list-page decision.
 export async function listBookingsWithStaff(): Promise<BookingRow[]> {
   const bookings = await listBookings();
   const names = await resolveStaffNames(bookings.flatMap((b) => [b.created_by, b.verified_by]));
-  return bookings.map((b) => ({
-    ...b,
-    createdByName: b.created_by ? (names.get(b.created_by) ?? null) : null,
-    verifiedByName: b.verified_by ? (names.get(b.verified_by) ?? null) : null,
-  }));
+  return sortForFrontDesk(
+    bookings.map((b) => ({
+      ...b,
+      createdByName: b.created_by ? (names.get(b.created_by) ?? null) : null,
+      verifiedByName: b.verified_by ? (names.get(b.verified_by) ?? null) : null,
+    }))
+  );
 }
 
 export type Payment = Database["booking"]["Tables"]["payments"]["Row"];
@@ -177,11 +186,7 @@ export async function listAvailableRooms(
   }));
 }
 
-async function countAvailable(
-  roomTypeId: string,
-  checkIn: Date,
-  checkOut: Date
-): Promise<number> {
+async function countAvailable(roomTypeId: string, checkIn: Date, checkOut: Date): Promise<number> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("fn_count_available", {
     p_room_type_id: roomTypeId,

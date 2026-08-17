@@ -140,6 +140,17 @@ const makeColumns = (canDelete: boolean): ColumnDef<BookingRow>[] => [
   // Filter-only: the channel is already spelled out under "Handled by", so a
   // column of its own would repeat it. Hidden columns still filter.
   { accessorKey: "source", header: "Channel", filterFn: includesValue },
+  // Also filter-only, and separate from the visible "Room" column above on
+  // purpose: that one's accessor is "101 Standard" so the search box matches
+  // either the number or the type, which makes it useless as a facet — the
+  // chips would read "101 Standard". This one is the bare label, so the filter
+  // lists room numbers and nothing else.
+  {
+    id: "room_label",
+    header: "Room",
+    accessorFn: (row) => row.room?.label ?? "",
+    filterFn: includesValue,
+  },
   {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
@@ -170,6 +181,20 @@ export function BookingsTable({
   canDelete?: boolean;
 }) {
   const columns = useMemo(() => makeColumns(canDelete), [canDelete]);
+  // Unlike status/payment/channel, the rooms aren't a fixed enum — they're
+  // whatever the inn has, so the options come from the rows on screen. A room
+  // with no bookings yet has nothing to filter to, and offering it would be an
+  // option that always returns an empty table.
+  //
+  // Sorted numerically: labels are "101", "102", "201", and a plain string
+  // sort puts "1010" between "101" and "102" the day the inn adds a floor.
+  const roomOptions = useMemo(() => {
+    const labels = [...new Set(bookings.map((b) => b.room?.label).filter(Boolean) as string[])];
+    return labels
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .map((label) => ({ value: label, label }));
+  }, [bookings]);
+
   return (
     <DataTable
       columns={columns}
@@ -178,9 +203,10 @@ export function BookingsTable({
       filterableColumns={[
         { id: "status", title: "Status", options: STATUS_OPTIONS },
         { id: "payment_status", title: "Payment", options: PAYMENT_OPTIONS },
+        { id: "room_label", title: "Room", options: roomOptions },
         { id: "source", title: "Channel", options: CHANNEL_OPTIONS },
       ]}
-      initialColumnVisibility={{ source: false }}
+      initialColumnVisibility={{ source: false, room_label: false }}
       emptyMessage="No bookings yet. Create a walk-in to get started."
     />
   );

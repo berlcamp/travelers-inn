@@ -696,3 +696,44 @@ check_in` from the availability page: both of those are a deliberate
   statement about WHEN, and silently resetting either would move a booking the
   clerk believes they already set. `setValue` without `shouldDirty`, so the
   field stays untouched and the next open re-stamps it again.
+- **The bookings list reads like a front desk — DONE** (no migration).
+  _Order_: `/bookings` was `order by period desc` in SQL, which sorts a
+  `tstzrange` by its LOWER bound — so the top of the list was whichever stay
+  starts furthest in the future. A September reservation outranked tonight's
+  arrivals, and the guests actually in the building sat near the bottom because
+  they checked in earliest of anyone. New `features/bookings/booking-order.ts`
+  `sortForFrontDesk()` puts them in three bands: **0 in-house** (`checked_in`,
+  earliest arrival first) → **1 still to come** (`pending_verification`,
+  `confirmed`, soonest arrival first) → **2 finished** (`checked_out`,
+  `cancelled`, `no_show`, most recent first).
+  _Bands are decided by STATUS ALONE, never by comparing a date to `now`_ — the
+  order is then a pure function of the rows, identical on the server and across
+  re-renders, with no clock to drift and nothing to re-sort as the day passes.
+  The consequence is deliberate: a `confirmed` booking whose arrival has
+  already passed (nobody turned up, nobody marked no-show) sorts to the **top**
+  of band 1 rather than into history — it is the oldest unanswered arrival and
+  it wants either a check-in or a no-show. An **unknown** status is band 1, not
+  band 2: a status added to the enum later is a nuisance at the top and a
+  booking nobody serves at the bottom.
+  A `pending_verification` booking queues by arrival like any other (asked and
+  confirmed) — it isn't more urgent than a guest arriving tonight, and the
+  amber badge plus the pending count already point at it.
+  Ties break on check-out then `reference_code`, so the order is **total**:
+  identical windows would otherwise come back in whatever order Postgres chose
+  and the list would reshuffle between reloads for no visible reason.
+  _Applied in `listBookingsWithStaff`, NOT `listBookings`_ — the latter also
+  feeds the calendar, where a row's position decides which booking wins a cell
+  when two overlap, and the grid has no reason to inherit a list-page decision.
+  The SQL `.order()` stays for that reason; the JS sort is total, so it doesn't
+  matter what order the rows arrive in.
+  _Room filter_: a fourth faceted chip (Status / Payment / **Room** / Channel).
+  It is a **hidden filter-only column** `room_label` (the `source` precedent),
+  separate from the visible "Room" column on purpose — that one's accessor is
+  `"101 Standard"` so the search box matches either the number or the type,
+  which makes it useless as a facet (the chips would read "101 Standard").
+  Options are derived from the rows on screen rather than from a fixed enum:
+  the rooms aren't an enum, and offering one with no bookings would be an
+  option that always returns an empty table. Sorted with
+  `localeCompare(…, { numeric: true })` — a plain string sort puts "1010"
+  between "101" and "102" the day the inn adds a floor.
+  New `booking-order.test.ts` (15 unit). **245 total** (`npm run test:db`).
