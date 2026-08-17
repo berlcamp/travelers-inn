@@ -675,3 +675,24 @@ fn_is_active_user()`** — `fn_is_admin()` alone never looked at `is_active`,
   `payments.created_at` is `now()`, and `quoted_total` was computed from a
   window shifted at both ends, so the night count and the price are what the
   guest agreed to.
+- **A walk-in arrives NOW — DONE** (no migration, no server logic). The walk-in
+  dialog's Check-in field defaulted to **13:00 today**, the standard arrival
+  hour, so every booking taken outside that one minute of the day began with
+  the clerk retyping the time while the guest stood at the counter. It now
+  opens on the **current date and time** (`nowAtTheInn()`, floored to the
+  minute — seconds are noise in a `datetime-local`). Check-out still derives
+  from it: `innAddDays(checkIn, 1)` for an overnight, `min` = the day after
+  arrival, and a block tier's end is still check-in + `duration_hours`.
+  _The availability page deliberately keeps 13:00_: that surface answers "do
+  you have a room tonight?", which is a question about a FUTURE arrival, and
+  it also keeps an overnight quote at one night.
+  _Why a `useEffect` and not just the default_: `defaults()` runs at mount and
+  after a successful booking, but `/bookings` sits open all shift — by
+  mid-afternoon its "now" would be whatever hour the clerk first loaded the
+  page, which is exactly the stale-default bug this was meant to remove. The
+  arrival is therefore re-stamped each time the dialog **opens**, but only when
+  `getFieldState("check_in").isDirty` is false and there is no `prefill.
+check_in` from the availability page: both of those are a deliberate
+  statement about WHEN, and silently resetting either would move a booking the
+  clerk believes they already set. `setValue` without `shouldDirty`, so the
+  field stays untouched and the next open re-stamps it again.

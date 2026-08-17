@@ -32,7 +32,6 @@ import type { BookingRow } from "@/features/bookings/repository";
 import {
   fromInnClock,
   innAddDays,
-  innAtHour,
   innClockValue,
   innDateValue,
   innFormatter,
@@ -69,8 +68,18 @@ export type WalkInPrefill = Partial<
   >
 >;
 
+/** Now, to the minute — the seconds are noise in a datetime-local field. */
+function nowAtTheInn(): Date {
+  return new Date(Math.floor(Date.now() / 60_000) * 60_000);
+}
+
 function defaults(prefill?: WalkInPrefill): BookingFormValues {
-  const checkIn = innAtHour(new Date(), 13);
+  // A walk-in is standing at the counter, so arrival is NOW rather than the
+  // 13:00 standard check-in this used to assume: the clerk was retyping the
+  // hour on every booking taken outside that one minute of the day. (The
+  // availability page still defaults to 13:00 — that one answers "do you have
+  // a room tonight?", which is a question about a future arrival.)
+  const checkIn = nowAtTheInn();
   const checkOut = innAddDays(checkIn, 1);
   const merged: BookingFormValues = {
     guest_name: "",
@@ -225,6 +234,20 @@ export function WalkInDialog({
   useEffect(() => {
     if (chosenRoomGone) form.setValue("room_id", "");
   }, [chosenRoomGone, form]);
+
+  // `defaults()` runs at mount and after a booking, but the bookings page sits
+  // open all shift — by mid-afternoon its "now" would be whatever hour the
+  // clerk first loaded the page. So the arrival is re-stamped each time the
+  // dialog opens.
+  //
+  // Only when the field is untouched, and never over a prefill from the
+  // availability page: both are a deliberate statement about WHEN, and quietly
+  // resetting either would move a booking the clerk believes they already set.
+  useEffect(() => {
+    if (!open || prefill?.check_in) return;
+    if (form.getFieldState("check_in").isDirty) return;
+    form.setValue("check_in", localDateTime(nowAtTheInn()));
+  }, [open, prefill?.check_in, form]);
 
   const priceError = priceQuote && "error" in priceQuote ? priceQuote.error : null;
   const totalDue = priceQuote && "total" in priceQuote ? priceQuote.total : null;
