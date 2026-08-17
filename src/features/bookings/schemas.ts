@@ -43,6 +43,10 @@ export type BookingInput = z.infer<typeof bookingSchema>;
  * just created.
  */
 export type ConfirmedBooking = {
+  /** Needed by the panel's "Check in now" button — the guest is usually
+   *  standing there, so checking in is one tap rather than a second trip
+   *  through the manage dialog. */
+  id: string;
   reference_code: string;
   guest_name: string;
   guest_count: number;

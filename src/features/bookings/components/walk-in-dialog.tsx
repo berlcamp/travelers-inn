@@ -452,6 +452,7 @@ export function WalkInDialog({
       <BookingConfirmedDialog
         booking={confirmed?.booking ?? null}
         paid={confirmed?.paid ?? 0}
+        onCheckedIn={() => router.refresh()}
         onOpenChange={(next) => {
           if (!next) setConfirmed(null);
         }}

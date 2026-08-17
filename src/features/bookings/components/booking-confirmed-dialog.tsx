@@ -1,7 +1,11 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { useTransition } from "react";
+import { CheckCircle2, LogIn } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { checkIn } from "@/features/bookings/front-desk-actions";
 import {
   Dialog,
   DialogClose,
@@ -13,7 +17,7 @@ import {
 import { peso } from "@/features/bookings/pricing";
 import { RoomNumberBox } from "./room-number-box";
 import type { ConfirmedBooking } from "@/features/bookings/schemas";
-import { innFormatter } from "@/lib/inn-time";
+import { innFormatter, innSameDay } from "@/lib/inn-time";
 
 const dt = innFormatter({
   weekday: "short",
@@ -25,6 +29,26 @@ const dt = innFormatter({
 function fmt(iso: string) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : dt.format(d);
+}
+
+/**
+ * What the confirm step says before handing over a room.
+ *
+ * This panel is reached two ways — a walk-in just taken at the counter, and an
+ * online booking whose deposit staff just verified — and the SAME walk-in
+ * dialog is also how advance bookings get entered (the availability page hands
+ * it a searched future window). So the arrival is spelled out every time, and
+ * a booking that isn't for today says so plainly: checking in a guest who
+ * arrives on Saturday marks the room occupied from now until they leave.
+ */
+function checkInWarning(booking: ConfirmedBooking): string {
+  const arrival = fmt(booking.checkIn);
+  const room = booking.room?.label ? `room ${booking.room.label}` : "the room";
+  const arrivesToday = booking.checkIn ? innSameDay(new Date(booking.checkIn), new Date()) : false;
+  const base = `${booking.guest_name} takes ${room} now, and it is marked occupied.`;
+  return arrivesToday
+    ? `${base} Booked arrival is ${arrival}.`
+    : `${base} NOTE: this booking is for ${arrival}, not today — check in only if the guest is here.`;
 }
 
 function Line({ label, value }: { label: string; value: React.ReactNode }) {
@@ -49,14 +73,39 @@ export function BookingConfirmedDialog({
   booking,
   paid,
   onOpenChange,
+  onCheckedIn,
 }: {
   /** Null closes the dialog — the caller sets it to open. A full `BookingRow`
    *  satisfies this too, which is how the manage dialog still passes its own. */
   booking: ConfirmedBooking | null;
   paid: number;
   onOpenChange: (open: boolean) => void;
+  /** Called after a successful check-in from here, so the caller can re-read
+   *  whatever it is showing. The panel closes itself either way. */
+  onCheckedIn?: () => void;
 }) {
+  const [pending, startTransition] = useTransition();
   const balance = booking ? Number(booking.quoted_total) - paid : 0;
+
+  function handleCheckIn() {
+    if (!booking) return;
+    startTransition(async () => {
+      const result = await checkIn(booking.id);
+      if (result.ok) {
+        toast.success(
+          `Checked in — ${booking.guest_name} has ${
+            booking.room?.label ? `room ${booking.room.label}` : "their room"
+          }.`
+        );
+        onCheckedIn?.();
+        onOpenChange(false);
+      } else {
+        // The booking is untouched and still confirmed, so the panel stays open
+        // and the clerk can try again or use the manage dialog.
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
     <Dialog open={!!booking} onOpenChange={onOpenChange}>
@@ -117,7 +166,30 @@ export function BookingConfirmedDialog({
             </div>
 
             <DialogFooter>
-              <DialogClose render={<Button>Done</Button>} />
+              {/* The guest is usually standing right there, so checking in is
+                  one tap from here instead of a second trip through the manage
+                  dialog. Confirmed first, because it is not a preview: it hands
+                  the room over and marks it occupied. */}
+              <ConfirmDialog
+                title="Check in now?"
+                description={checkInWarning(booking)}
+                confirmLabel="Check in"
+                onConfirm={handleCheckIn}
+                trigger={
+                  <Button disabled={pending}>
+                    <LogIn className="size-4" /> Check In Now
+                  </Button>
+                }
+              />
+              {/* Not "Done": the booking exists either way, and the real choice
+                  on this panel is WHEN the guest is let into the room. */}
+              <DialogClose
+                render={
+                  <Button variant="outline" disabled={pending}>
+                    Check In Later
+                  </Button>
+                }
+              />
             </DialogFooter>
           </>
         ) : null}

@@ -763,3 +763,33 @@ check_in` from the availability page: both of those are a deliberate
   and the two audit writes are off the critical path entirely. A failed label
   lookup still must not read as a failed booking — the panel falls back to "—",
   exactly as it did when `loadBookingDetail` failed.
+- **Check in from the confirmation panel; every lifecycle move asks first —
+  DONE** (no migration).
+  _`BookingConfirmedDialog` gained "Check In Now"_, with "Done" relabelled
+  **"Check In Later"** — the booking exists either way, so the real choice on
+  that panel is WHEN the guest is let into the room, and the old label implied
+  the work was over. The guest is usually standing at the counter, so this
+  replaces a second trip through the manage dialog. `ConfirmedBooking` gained
+  `id` for it (`BookingRow` still satisfies the type, so the manage dialog's
+  verified-deposit path is unchanged); the panel takes an optional
+  `onCheckedIn` so each caller re-reads what it is showing, and closes itself
+  on success. A failed check-in leaves the panel OPEN — the booking is
+  untouched and still confirmed, so there is something to retry.
+  _It is confirmed, not immediate, and the confirm text is computed_
+  (`checkInWarning`). This panel is reached two ways — a walk-in just taken,
+  and an online booking whose deposit was just verified — and the SAME walk-in
+  dialog is how advance bookings get entered, since the availability page hands
+  it a searched FUTURE window. So the booked arrival is always spelled out, and
+  a booking that isn't for today (`innSameDay`) says so: "this booking is for
+  Sat, Aug 22, 1:00 PM, not today — check in only if the guest is here."
+  That is also why check-in is NOT automatic on a walk-in: it would be wrong
+  for every advance booking, `fn_create_booking` only accepts
+  `confirmed`/`pending_verification` so it would need a second UPDATE plus a
+  room-status write (two more round trips on the path just optimised), and it
+  would collapse "booked by X" and "let in by Y" into one audit entry.
+  _Manage dialog_: **check-in and check-out now confirm too**. No-show, Cancel
+  and Delete already did; those four sit side by side one tap apart and each
+  moves the booking somewhere this dialog can't move it back from. Check-out's
+  text names the consequence people forget — it stamps the REAL departure time
+  over the booked window (`stay-window.ts`), so pressing it an hour early
+  records an hour early: "recorded as now, not the booked 12:00 noon".

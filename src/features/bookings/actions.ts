@@ -157,6 +157,7 @@ export async function createBooking(input: unknown): Promise<
     // which is what it already did when loadBookingDetail failed.
     const { checkIn, checkOut } = parsePeriod(row.period);
     const confirmation: ConfirmedBooking = {
+      id: row.id,
       reference_code: row.reference_code,
       guest_name: row.guest_name,
       guest_count: row.guest_count,

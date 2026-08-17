@@ -234,23 +234,39 @@ export function BookingManageDialog({
 
               {/* Lifecycle actions */}
               <div className="flex flex-wrap gap-2">
+                {/* Every one of these four moves the booking to a state it
+                    cannot be moved back out of from this dialog, and they sit
+                    side by side one tap apart — so each asks first. Check-in
+                    and check-out were the two that didn't. */}
                 {status === "confirmed" ? (
-                  <Button
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => runAction(() => checkIn(b.id), "Checked in.")}
-                  >
-                    <LogIn className="size-4" /> Check in
-                  </Button>
+                  <ConfirmDialog
+                    title="Check in this guest?"
+                    description={`${b.guest_name} takes room ${b.room?.label ?? ""} now, and it is marked occupied. Booked arrival is ${fmt(b.checkIn)}.`}
+                    confirmLabel="Check in"
+                    onConfirm={() => runAction(() => checkIn(b.id), "Checked in.")}
+                    trigger={
+                      <Button size="sm" disabled={pending}>
+                        <LogIn className="size-4" /> Check in
+                      </Button>
+                    }
+                  />
                 ) : null}
                 {status === "checked_in" ? (
-                  <Button
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => runAction(() => checkOut(b.id), "Checked out.")}
-                  >
-                    <LogOut className="size-4" /> Check out
-                  </Button>
+                  <ConfirmDialog
+                    title="Check out this guest?"
+                    // Check-out stamps the REAL departure time over the booked
+                    // window (features/bookings/stay-window.ts), so the clerk
+                    // is told what the recorded time will be — pressing this an
+                    // hour early records an hour early.
+                    description={`${b.guest_name} leaves room ${b.room?.label ?? ""}. The departure is recorded as now, not the booked ${fmt(b.checkOut)}, and the room goes to cleaning.`}
+                    confirmLabel="Check out"
+                    onConfirm={() => runAction(() => checkOut(b.id), "Checked out.")}
+                    trigger={
+                      <Button size="sm" disabled={pending}>
+                        <LogOut className="size-4" /> Check out
+                      </Button>
+                    }
+                  />
                 ) : null}
                 {status === "confirmed" ? (
                   <ConfirmDialog
@@ -375,6 +391,7 @@ export function BookingManageDialog({
       <BookingConfirmedDialog
         booking={confirmed?.booking ?? null}
         paid={confirmed?.paid ?? 0}
+        onCheckedIn={() => router.refresh()}
         onOpenChange={(next) => {
           if (!next) setConfirmed(null);
         }}
