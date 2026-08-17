@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { peso } from "@/features/bookings/pricing";
 import { RoomNumberBox } from "./room-number-box";
-import type { BookingRow } from "@/features/bookings/repository";
+import type { ConfirmedBooking } from "@/features/bookings/schemas";
 import { innFormatter } from "@/lib/inn-time";
 
 const dt = innFormatter({
@@ -50,8 +50,9 @@ export function BookingConfirmedDialog({
   paid,
   onOpenChange,
 }: {
-  /** Null closes the dialog — the caller sets it to open. */
-  booking: BookingRow | null;
+  /** Null closes the dialog — the caller sets it to open. A full `BookingRow`
+   *  satisfies this too, which is how the manage dialog still passes its own. */
+  booking: ConfirmedBooking | null;
   paid: number;
   onOpenChange: (open: boolean) => void;
 }) {

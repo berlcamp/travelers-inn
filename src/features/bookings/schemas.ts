@@ -29,6 +29,31 @@ export const bookingSchema = z.object({
 export type BookingFormValues = z.input<typeof bookingSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;
 
+/**
+ * Everything the "Booking confirmed" panel puts on screen, and nothing else.
+ *
+ * It lives here — not in repository.ts — because BOTH sides need it: the
+ * walk-in action builds one to hand back, and the client dialog renders it.
+ * `BookingRow` satisfies it structurally, so the manage dialog (which already
+ * holds a full row after re-reading a verified booking) still passes its row
+ * straight in without an adapter.
+ *
+ * The point of the shape is that a walk-in no longer needs a SECOND request to
+ * learn its own room number: the labels come back with the booking that was
+ * just created.
+ */
+export type ConfirmedBooking = {
+  reference_code: string;
+  guest_name: string;
+  guest_count: number;
+  quoted_total: number | string;
+  checkIn: string;
+  checkOut: string;
+  room: { label: string } | null;
+  room_type: { name: string } | null;
+  rate_tier: { label: string } | null;
+};
+
 export const BOOKING_STATUSES = [
   "pending_verification",
   "confirmed",

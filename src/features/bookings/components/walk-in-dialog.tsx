@@ -21,14 +21,13 @@ import {
   bookingSchema,
   type BookingFormValues,
   type BookingInput,
+  type ConfirmedBooking,
 } from "@/features/bookings/schemas";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/features/bookings/payment-schema";
 import { createBooking, listFreeRooms } from "@/features/bookings/actions";
-import { loadBookingDetail } from "@/features/bookings/front-desk-actions";
 import { BookingConfirmedDialog } from "./booking-confirmed-dialog";
 import { quote, peso, checkOutValue, type RateTier } from "@/features/bookings/pricing";
 import type { RoomTypeWithTiers } from "@/features/rooms/repository";
-import type { BookingRow } from "@/features/bookings/repository";
 import {
   fromInnClock,
   innAddDays,
@@ -128,7 +127,10 @@ export function WalkInDialog({
   const [freeRooms, setFreeRooms] = useState<{ id: string; label: string }[] | null>(null);
   const [checking, setChecking] = useState(false);
   // Set once the booking exists; drives the "which room do they walk to" panel.
-  const [confirmed, setConfirmed] = useState<{ booking: BookingRow; paid: number } | null>(null);
+  const [confirmed, setConfirmed] = useState<{
+    booking: ConfirmedBooking;
+    paid: number;
+  } | null>(null);
   const available = freeRooms?.length ?? null;
 
   const form = useForm<BookingFormValues, unknown, BookingInput>({
@@ -259,7 +261,7 @@ export function WalkInDialog({
       const payload = isBlock ? { ...values, check_out: "" } : values;
       const result = await createBooking(payload);
       if (result.ok) {
-        const { reference_code, paid, paymentError } = result.data;
+        const { reference_code, paid, paymentError, confirmation } = result.data;
         if (paymentError) {
           // The room is held but the money isn't on the ledger — say so
           // plainly; staff finish the payment from the booking's manage dialog.
@@ -269,17 +271,21 @@ export function WalkInDialog({
         } else {
           toast.success(`Booked ${reference_code} — paid in full (${peso.format(paid)})`);
         }
+
+        // The room number comes back WITH the booking, so the panel opens on
+        // the same response that created it. It used to be a second server
+        // action (loadBookingDetail) — its own auth round trip and five
+        // queries — run while the guest stood at the counter waiting to be
+        // told which room was theirs.
+        //
+        // Opened before the refresh below, not after: router.refresh() re-runs
+        // the whole /bookings page on the server, and the clerk has no reason
+        // to wait for a list they are not looking at.
+        setConfirmed({ booking: confirmation, paid });
         setOpen(false);
         form.reset(defaults(prefill));
         setFreeRooms(null);
         router.refresh();
-
-        // The room number is only knowable after the server assigned it, so it
-        // is fetched rather than guessed. Failing to load it must not look like
-        // a failed booking — the booking is already made and the toast above
-        // already said so, so this just falls back to no panel.
-        const detail = await loadBookingDetail(result.data.id);
-        if (detail.ok) setConfirmed({ booking: detail.data.booking, paid: detail.data.paid });
       } else {
         toast.error(result.error);
       }

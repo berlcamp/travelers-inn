@@ -737,3 +737,29 @@ check_in` from the availability page: both of those are a deliberate
   `localeCompare(…, { numeric: true })` — a plain string sort puts "1010"
   between "101" and "102" the day the inn adds a floor.
   New `booking-order.test.ts` (15 unit). **245 total** (`npm run test:db`).
+- **The "Booking confirmed" panel opens on the save itself — DONE** (no
+  migration). Taking a walk-in cost the clerk TWO server requests before the
+  room number appeared: `createBooking`, then a whole second action
+  (`loadBookingDetail`) whose only job was to fetch the room LABEL, because
+  `fn_create_booking` returns ids. That second request paid the proxy's
+  `auth.getUser()` + profile check, `requireRole`'s own `auth.getUser()`, and
+  five queries — all with the guest standing at the counter waiting to be told
+  which room was theirs.
+  _Now the labels come back with the booking._ `createBooking` returns a
+  `ConfirmedBooking` (`schemas.ts` — it lives there because both the server
+  action and the client dialog need it, and **`BookingRow` satisfies it
+  structurally**, so the manage dialog's verified-deposit path still passes its
+  own row in with no adapter). The label query runs in `Promise.all` **with the
+  payment insert** rather than after it, so it costs no wall-clock at all: two
+  independent writes/reads, one round trip.
+  _The two `logAudit` calls moved into Next's `after()`_ — they run once the
+  response has gone out. `logAudit` is append-only and already swallows its own
+  errors by design ("must not break the user-facing action", `lib/audit.ts`),
+  so making the clerk wait a network round trip for each was buying nothing.
+  _The panel is opened BEFORE `router.refresh()`_, not after: the refresh
+  re-runs the whole `/bookings` page server-side, and the clerk has no reason
+  to wait for a list they are not looking at.
+  Net: ~15 sequential Supabase round trips before the panel appeared, now ~6,
+  and the two audit writes are off the critical path entirely. A failed label
+  lookup still must not read as a failed booking — the panel falls back to "—",
+  exactly as it did when `loadBookingDetail` failed.

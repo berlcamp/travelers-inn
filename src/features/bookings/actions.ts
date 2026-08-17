@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireRole } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { ok, fail, toActionError, type ActionResult } from "@/lib/action-result";
-import { bookingSchema } from "./schemas";
+import { bookingSchema, type ConfirmedBooking } from "./schemas";
 import { checkOutValue } from "./pricing";
+import { parsePeriod } from "./repository";
 import { fromInnClock } from "@/lib/inn-time";
 import { PROOF_BUCKET } from "@/features/portal/repository";
 
@@ -37,6 +39,11 @@ export async function createBooking(input: unknown): Promise<
     quoted_total: number;
     paid: number;
     paymentError: string | null;
+    /** Everything the confirmation panel shows, so the clerk sees the room
+     *  number the instant the save returns. This used to be a whole second
+     *  request (loadBookingDetail) after the booking already existed — auth
+     *  round trip included — with the guest standing there waiting for it. */
+    confirmation: ConfirmedBooking;
   }>
 > {
   try {
@@ -73,23 +80,32 @@ export async function createBooking(input: unknown): Promise<
     const row = (Array.isArray(data) ? data[0] : data) as {
       id: string;
       reference_code: string;
+      guest_name: string;
+      guest_count: number;
       quoted_total: number | string;
+      period: string;
     } | null;
     if (!row) return fail("Could not create the booking. Please try again.");
 
-    await logAudit({
-      actorId: user.id,
-      action: "booking.create",
-      entity: "booking",
-      entityId: row.id,
-      diff: {
-        source: "walk_in",
-        room_type_id: parsed.room_type_id,
-        // Records that a human chose the room, which the room_id on the booking
-        // alone can't say — every booking has one either way.
-        room_chosen: parsed.room_id ? parsed.room_id : null,
-      },
-    });
+    // after(): the audit write runs once the response has gone out. It is
+    // append-only, best-effort and already swallows its own errors (lib/audit.ts
+    // — "must not break the user-facing action"), so making the clerk wait a
+    // network round trip for it was buying nothing.
+    after(() =>
+      logAudit({
+        actorId: user.id,
+        action: "booking.create",
+        entity: "booking",
+        entityId: row.id,
+        diff: {
+          source: "walk_in",
+          room_type_id: parsed.room_type_id,
+          // Records that a human chose the room, which the room_id on the
+          // booking alone can't say — every booking has one either way.
+          room_chosen: parsed.room_id ? parsed.room_id : null,
+        },
+      })
+    );
 
     // Payment taken at the desk, in full. The amount is the row's own
     // quoted_total (the price fn_create_booking just computed), so the ledger
@@ -98,25 +114,59 @@ export async function createBooking(input: unknown): Promise<
     const total = Number(row.quoted_total);
     let paid = 0;
     let paymentError: string | null = null;
-    const { error: payError } = await supabase.from("payments").insert({
-      booking_id: row.id,
-      amount: total,
-      method: parsed.payment_method,
-      reference: parsed.payment_reference || null,
-      recorded_by: user.id,
-    });
+
+    // Two independent round trips, so they go together rather than one after
+    // the other: the payment the desk just took, and the labels the
+    // confirmation panel needs. fn_create_booking returns ids — the room's
+    // LABEL is the one thing the clerk actually reads out loud, and it only
+    // exists on the joined rows.
+    const [{ error: payError }, { data: labels }] = await Promise.all([
+      supabase.from("payments").insert({
+        booking_id: row.id,
+        amount: total,
+        method: parsed.payment_method,
+        reference: parsed.payment_reference || null,
+        recorded_by: user.id,
+      }),
+      // ONE string literal — a concatenated select widens to `string` and the
+      // row infers as GenericStringError (see deleteBooking below).
+      supabase
+        .from("bookings")
+        .select("room:rooms(label), room_type:room_types(name), rate_tier:rate_tiers(label)")
+        .eq("id", row.id)
+        .maybeSingle(),
+    ]);
+
     if (payError) {
       paymentError = payError.message;
     } else {
       paid = total;
-      await logAudit({
-        actorId: user.id,
-        action: "payment.record",
-        entity: "booking",
-        entityId: row.id,
-        diff: { amount: total, method: parsed.payment_method },
-      });
+      after(() =>
+        logAudit({
+          actorId: user.id,
+          action: "payment.record",
+          entity: "booking",
+          entityId: row.id,
+          diff: { amount: total, method: parsed.payment_method },
+        })
+      );
     }
+
+    // A failed label lookup must not read as a failed booking — the booking
+    // exists and is paid. The panel falls back to "—" for whatever is missing,
+    // which is what it already did when loadBookingDetail failed.
+    const { checkIn, checkOut } = parsePeriod(row.period);
+    const confirmation: ConfirmedBooking = {
+      reference_code: row.reference_code,
+      guest_name: row.guest_name,
+      guest_count: row.guest_count,
+      quoted_total: total,
+      checkIn,
+      checkOut,
+      room: labels?.room ?? null,
+      room_type: labels?.room_type ?? null,
+      rate_tier: labels?.rate_tier ?? null,
+    };
 
     revalidatePath("/bookings");
     revalidatePath("/calendar");
@@ -127,6 +177,7 @@ export async function createBooking(input: unknown): Promise<
       quoted_total: total,
       paid,
       paymentError,
+      confirmation,
     });
   } catch (err) {
     return toActionError(err);
