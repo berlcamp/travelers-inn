@@ -12,6 +12,7 @@ import {
 import { peso } from "@/features/bookings/pricing";
 import { SITE_URL } from "@/lib/site";
 import { coverOgImage, fallbackOgImage } from "@/lib/og-image";
+import { innFormatter } from "@/lib/inn-time";
 
 type BookSearchParams = { type?: string; checkIn?: string; checkOut?: string };
 
@@ -75,7 +76,7 @@ export async function generateMetadata({
   };
 }
 
-const dtFmt = new Intl.DateTimeFormat("en-PH", {
+const dtFmt = innFormatter({
   weekday: "short",
   month: "short",
   day: "numeric",

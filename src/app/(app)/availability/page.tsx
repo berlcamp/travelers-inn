@@ -8,12 +8,20 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AvailabilitySearch } from "@/features/bookings/components/availability-search";
 import { AvailabilityResults, sellable } from "@/features/bookings/components/availability-results";
+import {
+  fromInnClock,
+  innAddDays,
+  innAtHour,
+  innClockValue,
+  innFormatter,
+  innHour,
+} from "@/lib/inn-time";
 
 export const metadata: Metadata = { title: "Availability" };
 
 const DT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
-const windowFmt = new Intl.DateTimeFormat("en-PH", {
+const windowFmt = innFormatter({
   weekday: "short",
   month: "short",
   day: "numeric",
@@ -21,18 +29,16 @@ const windowFmt = new Intl.DateTimeFormat("en-PH", {
   minute: "2-digit",
 });
 
-function localDateTime(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+// This page runs on the SERVER, so every hour below is pinned to the inn's
+// clock (src/lib/inn-time.ts) — read off the process it would be UTC, and the
+// desk would get a default arrival of 1 PM London while standing in Bayugan.
+const localDateTime = innClockValue;
 
 // Noon the day after arrival — the inn's standard check-out, and the window an
 // unqualified "do you have a room?" means.
 function nextNoon(after: Date): Date {
-  const out = new Date(after);
-  out.setDate(out.getDate() + 1);
-  out.setHours(12, 0, 0, 0);
-  if (out.getTime() <= after.getTime()) out.setDate(out.getDate() + 1);
+  let out = innAtHour(innAddDays(after, 1), 12);
+  if (out.getTime() <= after.getTime()) out = innAtHour(innAddDays(out, 1), 12);
   return out;
 }
 
@@ -40,14 +46,14 @@ function nextNoon(after: Date): Date {
 // shared or kept open on a second tab while the desk takes another call.
 function resolveWindow(inRaw?: string, outRaw?: string) {
   const now = new Date();
-  const fallbackIn = new Date(now);
   // Before the 1pm standard arrival "today" still means 1pm; after it, a guest
   // asking now arrives now — which also keeps an overnight quote at 1 night.
-  if (now.getHours() < 13) fallbackIn.setHours(13, 0, 0, 0);
-  fallbackIn.setSeconds(0, 0);
+  // (…now, to the minute — the seconds would only make the URL ugly.)
+  const fallbackIn =
+    innHour(now) < 13 ? innAtHour(now, 13) : new Date(Math.floor(now.getTime() / 60_000) * 60_000);
 
-  const checkIn = inRaw && DT_RE.test(inRaw) ? new Date(inRaw) : fallbackIn;
-  const parsedOut = outRaw && DT_RE.test(outRaw) ? new Date(outRaw) : null;
+  const checkIn = inRaw && DT_RE.test(inRaw) ? fromInnClock(inRaw) : fallbackIn;
+  const parsedOut = outRaw && DT_RE.test(outRaw) ? fromInnClock(outRaw) : null;
   // A backwards or equal window would report nothing free for reasons that
   // look like a system fault; fall back to the standard overnight instead.
   const checkOut =

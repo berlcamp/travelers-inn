@@ -6,19 +6,14 @@ import { CalendarClock, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { innAddDays, innAtHour, innClockValue, innHour, innWeekday } from "@/lib/inn-time";
 
-// "YYYY-MM-DDTHH:mm" in local wall-clock — what datetime-local inputs speak and
-// what the booking actions read back (single-location inn, server local zone).
-function localDateTime(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+// "YYYY-MM-DDTHH:mm" on the INN's clock — what datetime-local inputs speak and
+// what the booking actions read these strings back as (src/lib/inn-time.ts).
+const localDateTime = innClockValue;
 
 function at(daysFromToday: number, hours: number, minutes = 0): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+  return innAtHour(innAddDays(new Date(), daysFromToday), hours, minutes);
 }
 
 // The three windows the desk is asked about all day. Computed from the
@@ -28,7 +23,7 @@ function presets(): { label: string; checkIn: Date; checkOut: Date }[] {
   const now = new Date();
   // Before the 1pm standard arrival, "tonight" still means 1pm today; after
   // it, a guest asking now arrives now.
-  const tonightIn = now.getHours() >= 13 ? now : at(0, 13);
+  const tonightIn = innHour(now) >= 13 ? now : at(0, 13);
   return [
     { label: "Tonight", checkIn: tonightIn, checkOut: at(1, 12) },
     { label: "Tomorrow night", checkIn: at(1, 13), checkOut: at(2, 12) },
@@ -37,15 +32,14 @@ function presets(): { label: string; checkIn: Date; checkOut: Date }[] {
 }
 
 function nextFriday(hours: number): Date {
-  const d = new Date();
-  // 5 = Friday. Always look ahead, so on a Friday this means the next one.
-  const ahead = ((5 - d.getDay() + 7) % 7) || 7;
+  // 5 = Friday, on the inn's calendar. Always look ahead, so on a Friday this
+  // means the next one.
+  const ahead = (5 - innWeekday(new Date()) + 7) % 7 || 7;
   return at(ahead, hours);
 }
 
 function nextSunday(hours: number): Date {
-  const d = new Date();
-  const friday = ((5 - d.getDay() + 7) % 7) || 7;
+  const friday = (5 - innWeekday(new Date()) + 7) % 7 || 7;
   return at(friday + 2, hours);
 }
 

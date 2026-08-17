@@ -3,6 +3,7 @@
 // this", so a wrong or missing label is a real failure, not a cosmetic one.
 import { peso } from "./pricing";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "./payment-schema";
+import { innFormatter } from "@/lib/inn-time";
 
 export const BOOKING_SOURCE_LABELS: Record<string, string> = {
   walk_in: "Walk-in",
@@ -18,6 +19,11 @@ const ACTION_LABELS: Record<string, string> = {
   "booking.check_out": "Checked out",
   "booking.no_show": "Marked no-show",
   "booking.cancel": "Booking cancelled",
+  // Never rendered in a booking's own trail — the row is gone, so the dialog
+  // that would show it can't be opened. Mapped anyway: this table is what
+  // turns an audit action into a sentence, and a deleted booking's entry is
+  // the one entry that outlives what it describes.
+  "booking.delete": "Booking deleted",
   "booking.reassign_room": "Room reassigned",
   "payment.record": "Payment received",
 };
@@ -33,7 +39,7 @@ function money(value: unknown): string | null {
   return Number.isFinite(n) ? peso.format(n) : null;
 }
 
-const whenFmt = new Intl.DateTimeFormat("en-PH", {
+const whenFmt = innFormatter({
   month: "short",
   day: "numeric",
   hour: "numeric",

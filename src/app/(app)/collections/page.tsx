@@ -14,11 +14,12 @@ import { CollectionsLedger } from "@/features/collections/components/collections
 import { CollectionsExport } from "@/features/collections/components/collections-export";
 import { PrintHeader, SignatureBlock } from "@/features/collections/components/remittance-slip";
 import { peso } from "@/features/bookings/pricing";
+import { fromInnClock, innFormatter } from "@/lib/inn-time";
 
 export const metadata: Metadata = { title: "Collections" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const fullDate = new Intl.DateTimeFormat("en-PH", {
+const fullDate = innFormatter({
   month: "long",
   day: "numeric",
   year: "numeric",
@@ -59,10 +60,8 @@ export default async function CollectionsPage({
   const scope = staffName ?? "All receptionists";
   const period =
     from === to
-      ? fullDate.format(new Date(`${from}T00:00:00`))
-      : `${fullDate.format(new Date(`${from}T00:00:00`))} – ${fullDate.format(
-          new Date(`${to}T00:00:00`)
-        )}`;
+      ? fullDate.format(fromInnClock(from))
+      : `${fullDate.format(fromInnClock(from))} – ${fullDate.format(fromInnClock(to))}`;
 
   // With no staff filter the sheet spans several drawers, so the ledger has to
   // name who took each payment and the by-receptionist split is the point of

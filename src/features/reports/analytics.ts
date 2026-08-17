@@ -10,6 +10,21 @@
 //     inside the range) and the BOOKING DATE for "bookings taken" (which staff
 //     member sold what, when).
 // Each computed field below says which of the two it uses.
+//
+// BOTH clocks are the inn's wall clock. "1–7 August" means seven days in
+// Bayugan, and a night is 14:00 → next 12:00 there — never in whatever zone the
+// process runs in, which is UTC on the deployed server and would slide every
+// boundary eight hours. Relative + .ts extension so this still runs under
+// `node --experimental-strip-types` (supabase/tests/analytics.test.ts) — the
+// only import allowed here is another pure module.
+import {
+  fromInnClock,
+  innAddDays,
+  innAtHour,
+  innDateValue,
+  innFormatter,
+  innStartOfDay,
+} from "../../lib/inn-time.ts";
 
 export type ReportBooking = {
   id: string;
@@ -127,28 +142,17 @@ function excludedTotal(payments: ReportPayment[]): ExcludedTotal {
 }
 
 const DAY_MS = 86_400_000;
-const DAY_LABEL = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric" });
+const DAY_LABEL = innFormatter({ month: "short", day: "numeric" });
 
-export function startOfDay(d: Date): Date {
-  const c = new Date(d);
-  c.setHours(0, 0, 0, 0);
-  return c;
-}
-
-export function isoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+export const startOfDay = innStartOfDay;
+export const isoDate = innDateValue;
 
 // Inclusive `from`, inclusive `to` — the UI's date inputs are inclusive, so
 // "1 Aug to 31 Aug" must contain the whole of the 31st. The exclusive end used
 // for overlap maths is midnight after `to`.
 export function rangeBounds(from: string, to: string): { start: Date; end: Date; days: number } {
-  const start = startOfDay(new Date(`${from}T00:00:00`));
-  const end = startOfDay(new Date(`${to}T00:00:00`));
-  end.setDate(end.getDate() + 1);
+  const start = fromInnClock(from);
+  const end = innAddDays(fromInnClock(to), 1);
   const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY_MS));
   return { start, end, days };
 }
@@ -162,12 +166,7 @@ function within(iso: string, start: Date, end: Date): boolean {
 // convention the dashboard uses (features/reports/reports.ts), so occupancy on
 // the dashboard and occupancy in a report can never tell different stories.
 function nightWindow(day: Date): [number, number] {
-  const open = new Date(day);
-  open.setHours(14, 0, 0, 0);
-  const close = new Date(day);
-  close.setDate(close.getDate() + 1);
-  close.setHours(12, 0, 0, 0);
-  return [open.getTime(), close.getTime()];
+  return [innAtHour(day, 14).getTime(), innAtHour(innAddDays(day, 1), 12).getTime()];
 }
 
 // Room-nights a stay sells inside [start, end): the number of NIGHTS it
@@ -191,9 +190,9 @@ export function nightsBetween(checkIn: string, checkOut: string, start: Date, en
   }
 
   let count = 0;
-  const day = new Date(Math.max(inDay.getTime(), start.getTime()));
+  let day = new Date(Math.max(inDay.getTime(), start.getTime()));
   const lastDay = Math.min(outDay.getTime(), end.getTime() - 1);
-  for (; day.getTime() <= lastDay; day.setDate(day.getDate() + 1)) {
+  for (; day.getTime() <= lastDay; day = innAddDays(day, 1)) {
     const [open, close] = nightWindow(day);
     if (inAt < close && open < outAt) count += 1;
   }
@@ -207,9 +206,8 @@ export function stayNights(checkIn: string, checkOut: string): number {
   const inAt = new Date(checkIn);
   const outAt = new Date(checkOut);
   if (Number.isNaN(inAt.getTime()) || Number.isNaN(outAt.getTime())) return 1;
-  const end = startOfDay(outAt);
-  end.setDate(end.getDate() + 1);
-  return Math.max(1, nightsBetween(checkIn, checkOut, startOfDay(inAt), end));
+  const end = innAddDays(innStartOfDay(outAt), 1);
+  return Math.max(1, nightsBetween(checkIn, checkOut, innStartOfDay(inAt), end));
 }
 
 function bucketize(

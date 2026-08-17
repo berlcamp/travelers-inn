@@ -1,5 +1,12 @@
 // Pure, unit-testable dashboard metric computation. No I/O — the repository
 // fetches the raw arrays and hands them here.
+//
+// Every day boundary below is a day at the INN, never a day wherever this
+// happens to run: on the UTC server `setHours(0)` made "today's revenue" run
+// 8 AM → 8 AM. Relative + .ts extension so this still runs under
+// `node --experimental-strip-types` (supabase/tests/reports.test.ts) — the
+// only import allowed here is another pure module.
+import { innAddDays, innAtHour, innFormatter, innSameDay } from "../../lib/inn-time.ts";
 
 export type RptBooking = {
   id: string;
@@ -53,39 +60,18 @@ const ACTIVE = ["pending_verification", "confirmed", "checked_in"];
 const OCCUPYING = ["pending_verification", "confirmed", "checked_in", "checked_out"];
 // Cancelling hands the money back, so a payment on a cancelled booking is not
 // revenue. A no-show is NOT here: that money was forfeited, not returned.
-// Duplicated from analytics.ts `countsAsRevenue` on purpose — this module stays
-// import-free so it runs under `node --experimental-strip-types`; keep the two
-// in step.
+// Duplicated from analytics.ts `countsAsRevenue` on purpose — keeping the two
+// modules independent of each other; keep them in step.
 const REFUNDED = ["cancelled"];
 function countsAsRevenue(p: RptPayment): boolean {
   return !REFUNDED.includes(p.bookingStatus);
 }
-const WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "short" });
+const WEEKDAY = innFormatter({ weekday: "short" });
 
-function startOfDay(d: Date): Date {
-  const c = new Date(d);
-  c.setHours(0, 0, 0, 0);
-  return c;
-}
-function addDays(d: Date, n: number): Date {
-  const c = new Date(d);
-  c.setDate(c.getDate() + n);
-  return c;
-}
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-// The nightly window for a given day: 14:00 that day → 12:00 the next.
+// The nightly window for a given day: 14:00 that day → 12:00 the next, both on
+// the inn's clock.
 function nightWindow(day: Date): [Date, Date] {
-  const start = startOfDay(day);
-  start.setHours(14, 0, 0, 0);
-  const end = startOfDay(addDays(day, 1));
-  end.setHours(12, 0, 0, 0);
-  return [start, end];
+  return [innAtHour(day, 14), innAtHour(innAddDays(day, 1), 12)];
 }
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
   return aStart < bEnd && bStart < aEnd;
@@ -96,10 +82,10 @@ export function computeDashboard(input: DashboardInput): DashboardData {
   const roomsTotal = roomIds.length;
 
   const arrivalsToday = bookings.filter(
-    (b) => b.status === "confirmed" && sameDay(new Date(b.checkIn), now)
+    (b) => b.status === "confirmed" && innSameDay(new Date(b.checkIn), now)
   );
   const departuresToday = bookings.filter(
-    (b) => b.status === "checked_in" && sameDay(new Date(b.checkOut), now)
+    (b) => b.status === "checked_in" && innSameDay(new Date(b.checkOut), now)
   );
   const inHouse = bookings.filter((b) => b.status === "checked_in").length;
 
@@ -119,7 +105,7 @@ export function computeDashboard(input: DashboardInput): DashboardData {
   const earned = payments.filter(countsAsRevenue);
 
   const revenueToday = earned
-    .filter((p) => sameDay(new Date(p.createdAt), now))
+    .filter((p) => innSameDay(new Date(p.createdAt), now))
     .reduce((acc, p) => acc + p.amount, 0);
 
   // Outstanding: unpaid balance across still-active bookings.
@@ -132,11 +118,11 @@ export function computeDashboard(input: DashboardInput): DashboardData {
     .reduce((acc, b) => acc + Math.max(0, b.quotedTotal - (paidByBooking.get(b.id) ?? 0)), 0);
 
   // 7-day series (oldest → today).
-  const days = Array.from({ length: 7 }, (_, i) => addDays(now, i - 6));
+  const days = Array.from({ length: 7 }, (_, i) => innAddDays(now, i - 6));
 
   const revenueByDay = days.map((day) =>
     earned
-      .filter((p) => sameDay(new Date(p.createdAt), day))
+      .filter((p) => innSameDay(new Date(p.createdAt), day))
       .reduce((acc, p) => acc + p.amount, 0)
   );
   const revenueMax = Math.max(1, ...revenueByDay);

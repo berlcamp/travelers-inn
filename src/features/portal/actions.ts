@@ -8,6 +8,7 @@ import { portalBookingWithProofSchema } from "./schemas";
 import { getPortalPaymentInfo, PROOF_BUCKET } from "./repository";
 import { depositFor } from "@/features/bookings/deposit";
 import { checkOutAtNoon } from "@/features/bookings/pricing";
+import { fromInnClock, innStartOfDay } from "@/lib/inn-time";
 
 const MAX_NIGHTS = 30;
 const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -47,11 +48,13 @@ export async function createPortalBookingWithProof(
       reference_no: formData.get("reference_no"),
     });
 
-    const checkIn = new Date(parsed.check_in);
+    // The form's dates are wall-clock on the INN's clock, and "today" is today
+    // at the inn — not in the guest's timezone and not in the server's. See
+    // src/lib/inn-time.ts.
+    const checkIn = fromInnClock(parsed.check_in);
     if (Number.isNaN(checkIn.getTime())) return fail("Please choose a valid date.");
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = innStartOfDay(new Date());
     if (checkIn < startOfToday) return fail("Please choose a future date.");
 
     // Overnight stays send a check-out; blocks derive it server-side. The hour
@@ -60,7 +63,7 @@ export async function createPortalBookingWithProof(
     // noon; a hand-crafted POST need not).
     let checkOutISO = checkIn.toISOString();
     if (parsed.check_out) {
-      const checkOut = checkOutAtNoon(new Date(parsed.check_out));
+      const checkOut = checkOutAtNoon(fromInnClock(parsed.check_out));
       if (Number.isNaN(checkOut.getTime())) return fail("Please choose a valid check-out date.");
       if (checkOut <= checkIn) return fail("Check-out must be after check-in.");
       if (checkOut.getTime() - checkIn.getTime() > MAX_NIGHTS * 86_400_000) {

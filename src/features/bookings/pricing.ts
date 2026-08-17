@@ -1,3 +1,7 @@
+// Relative + .ts extension so this module keeps running under
+// `node --experimental-strip-types` (supabase/tests/pricing.test.ts).
+import { innAtHour } from "../../lib/inn-time.ts";
+
 export type TierKind = "block" | "overnight";
 
 // The pricing inputs a quote needs. Mirrors booking.rate_tiers +
@@ -34,13 +38,15 @@ const MS_PER_NIGHT = 86_400_000;
  *  dashboard and the reports both measure a night as 14:00 → next 12:00. */
 export const CHECK_OUT_HOUR = 12;
 
-/** Noon on the date of `d`, in local wall-clock. An overnight guest leaves at
+/** Noon on the date of `d`, on the INN's clock. An overnight guest leaves at
  *  midday whatever hour the desk happened to type — only the DATE is a choice.
- *  (Leaving earlier is recorded at check-out; see stay-window.ts.) */
+ *  (Leaving earlier is recorded at check-out; see stay-window.ts.)
+ *
+ *  Noon here is noon in Manila, not noon wherever this runs: `setHours(12)` on
+ *  the UTC server was 8 PM at the inn, which put every overnight check-out
+ *  eight hours late and could price a second night. See lib/inn-time.ts. */
 export function checkOutAtNoon(d: Date): Date {
-  const out = new Date(d);
-  out.setHours(CHECK_OUT_HOUR, 0, 0, 0);
-  return out;
+  return innAtHour(d, CHECK_OUT_HOUR);
 }
 
 /** The same rule on the strings the forms speak: "YYYY-MM-DD" (a date input)

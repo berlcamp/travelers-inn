@@ -20,8 +20,9 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { setStaffActive, setStaffRole } from "@/features/users/actions";
 import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/features/users/schemas";
 import type { StaffMember } from "@/features/users/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" });
+const dt = innFormatter({ month: "short", day: "numeric", year: "numeric" });
 
 function initials(name: string) {
   return name

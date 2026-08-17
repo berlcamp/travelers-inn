@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Plus, ShieldAlert } from "lucide-react";
-import { pageRole } from "@/lib/auth/guards";
+import { pageRole, hasRole } from "@/lib/auth/guards";
 import { AccessDenied } from "@/components/shared/access-denied";
 import { listBookingsWithStaff, countPendingVerification } from "@/features/bookings/repository";
 import { listActiveRoomTypes } from "@/features/rooms/repository";
@@ -47,7 +47,11 @@ export default async function BookingsPage() {
           </span>
         </div>
       ) : null}
-      <BookingsTable bookings={bookings} />
+      {/* Deleting a booking is offered HERE and nowhere else. This is the
+        register — the list you open to correct a record. The dashboard's
+        arrivals and departures are a shift running its day, and an erase
+        button has no business sitting beside "check in". */}
+      <BookingsTable bookings={bookings} canDelete={hasRole(allowed, "admin")} />
     </div>
   );
 }

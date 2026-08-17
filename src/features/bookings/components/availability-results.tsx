@@ -7,15 +7,16 @@ import type { TypeAvailability } from "@/features/bookings/repository";
 import type { RoomTypeWithTiers } from "@/features/rooms/repository";
 import { cn } from "@/lib/utils";
 import { WalkInDialog } from "./walk-in-dialog";
+import { innFormatter } from "@/lib/inn-time";
 
-const dayTime = new Intl.DateTimeFormat("en-PH", {
+const dayTime = innFormatter({
   weekday: "short",
   month: "short",
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
 });
-const timeOnly = new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit" });
+const timeOnly = innFormatter({ hour: "numeric", minute: "2-digit" });
 
 // A block that starts and ends the same day doesn't need the date twice.
 function window(checkIn: Date, checkOut: Date): string {
@@ -130,7 +131,10 @@ export function AvailabilityResults({
                         <span className="text-sm font-medium">
                           {tier.unitLabel}
                           {tier.kind === "overnight" && tier.unitLabel !== tier.label ? (
-                            <span className="text-muted-foreground font-normal"> · {tier.label}</span>
+                            <span className="text-muted-foreground font-normal">
+                              {" "}
+                              · {tier.label}
+                            </span>
                           ) : null}
                         </span>
                         <span className="text-muted-foreground text-xs tabular-nums">

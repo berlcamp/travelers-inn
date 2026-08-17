@@ -111,7 +111,7 @@ Plans: `docs/superpowers/plans/`
   base are charged **per night** for overnight, once for blocks. Bookings carry
   `rate_tier_id` + `guest_count`. `fn_create_booking` signature is now
   `(name, phone, email, room_type_id, rate_tier_id, guest_count, check_in,
-  check_out, source, notes)` and stays authoritative on price. TS mirror is
+check_out, source, notes)` and stays authoritative on price. TS mirror is
   `features/bookings/pricing.ts` `quote(tier, occ, guestCount, checkIn, checkOut?)`.
   Room-type form has a nested tier editor (soft-deactivates removed tiers, never
   hard-deletes — bookings FK-reference tiers). Portal & walk-in both pick
@@ -131,8 +131,8 @@ Plans: `docs/superpowers/plans/`
   `fn_available_rooms`) was widened to match. `fn_create_booking` gained a
   trailing `p_status` parameter (default `confirmed`, portal passes
   `pending_verification`) — signature is now `(name, phone, email,
-  room_type_id, rate_tier_id, guest_count, check_in, check_out, source, notes,
-  status)`. Proof files land in the **private** `travelers-inn-payment-proofs`
+room_type_id, rate_tier_id, guest_count, check_in, check_out, source, notes,
+status)`. Proof files land in the **private** `travelers-inn-payment-proofs`
   bucket (staff read via signed URL; the room-photo bucket stays public — two
   different trust levels, two different buckets). Staff verify/reject via a
   panel in the booking manage dialog (`features/bookings/verification-actions.ts`,
@@ -149,7 +149,7 @@ Plans: `docs/superpowers/plans/`
   SECURITY DEFINER functions that don't belong to anon (`fn_create_booking`,
   `fn_count_available`, `fn_available_rooms`, `fn_claim_invitation`,
   `fn_submit_feedback`) — migration 1's `alter default privileges ... grant
-  all on routines to anon` had been silently handing every new/changed
+all on routines to anon` had been silently handing every new/changed
   function a live anon EXECUTE grant, which is how `fn_create_booking`
   reacquired it when this branch added `p_status`. **Read that migration's
   comments before adding any new `booking.*` function**: a schema-scoped
@@ -160,7 +160,7 @@ Plans: `docs/superpowers/plans/`
   would work but reaches every schema the migrating role touches on this
   SHARED project, so it isn't used). The only thing that actually works: every
   new SECURITY DEFINER function needs its own explicit `revoke execute ... from
-  public, anon;` right after `create function`, same as the five here. New
+public, anon;` right after `create function`, same as the five here. New
   test files: `verification.test.mjs` (9), `feedback.test.mjs` (8),
   `deposit.test.ts` (7 unit tests for `depositFor()`); `rooms.test.mjs` grew
   for the multi-photo gallery. **69 total** (`npm run test:db`).
@@ -183,7 +183,7 @@ Plans: `docs/superpowers/plans/`
   deactivated profile to `/login?error=deactivated`. New `staff.test.mjs` (9)
   covers the RLS boundaries and those write shapes. **78 total**.
 - **Booking attribution + admin reports — DONE** (migration `20260806000100`).
-  *Attribution*: `bookings.created_by` (already set by `fn_create_booking` from
+  _Attribution_: `bookings.created_by` (already set by `fn_create_booking` from
   `auth.uid()` — null for portal bookings, which run through the service-role
   client) and `payments.recorded_by` were recorded but never shown; the
   verifier lived only in `audit_logs`. New `bookings.verified_by` /
@@ -196,7 +196,7 @@ Plans: `docs/superpowers/plans/`
   verified-by/on, each payment's mode + amount + **who received it**, and a
   chronological **activity trail**; the bookings list gained a searchable
   "Handled by" column (`listBookingsWithStaff`).
-  *Two new SECURITY DEFINER readers* exist because front desk may read neither
+  _Two new SECURITY DEFINER readers_ exist because front desk may read neither
   `audit_logs` (admin-only; also holds settings/role changes) nor other
   people's `profiles` (self-only; holds emails): `fn_booking_trail(booking)`
   returns ONE booking's audit rows with actor names joined, and
@@ -204,7 +204,7 @@ Plans: `docs/superpowers/plans/`
   gated on `fn_is_active_user()` and both carry the mandatory
   `revoke execute ... from public, anon` (see migration `20260726000600`).
   Neither policy was widened.
-  *Reports* (`/reports`, admin-only, sidebar "Reports"): date range in the URL
+  _Reports_ (`/reports`, admin-only, sidebar "Reports"): date range in the URL
   (`?from=&to=`, defaults to month-to-date) + presets, print, and client-side
   CSV export of the payments and bookings ledgers. Two clocks, deliberately:
   **financial** figures follow the cash (a payment counts in the range it was
@@ -227,7 +227,7 @@ Plans: `docs/superpowers/plans/`
   `quoted_total` (the price `fn_create_booking` just computed) with
   `recorded_by = auth.uid()` plus a `payment.record` audit entry. Recording the
   server's own figure rather than a client-supplied one is what makes a part
-  payment or an overpayment *impossible* here instead of merely discouraged,
+  payment or an overpayment _impossible_ here instead of merely discouraged,
   and it keeps the ledger, the trigger-derived `payment_status` and the
   activity trail identical to what the manage dialog would have produced. The
   two writes can't share a transaction (the booking comes back from an RPC), so
@@ -236,7 +236,7 @@ Plans: `docs/superpowers/plans/`
   the ledger. `recordPayment` (manage dialog) now also refuses to exceed the
   outstanding balance — it was the only remaining way to overpay a booking, and
   an overpayment has no expressible meaning in reports. Deposit-then-balance on
-  *portal* bookings is untouched: those are still two payments by design.
+  _portal_ bookings is untouched: those are still two payments by design.
 - **Staff-app UI aligned with bayugan-tracks — DONE** (no migration, no server
   logic): the `(app)` surfaces now share that project's visual system so the two
   internal tools read as one. `globals.css` swapped the warm teal/parchment
@@ -256,26 +256,26 @@ Plans: `docs/superpowers/plans/`
   it reads `usePathname`).
   The shared `DataTable` was rebuilt around the same table kit — a toolbar
   (global search + multi-select **faceted filter** chips with live facet counts
-  + Reset), a card-wrapped table with a muted uppercase header row, and a
-  footer with rows-per-page. Faceted filters are multi-select, so every
-  filterable column needs `filterFn: includesValue` (exported from
-  `shared/data-table.tsx`) — TanStack's default is single-value equality and
-  silently matches nothing once a second option is ticked. Wired up on
-  bookings (status / payment / channel — `source` is a **hidden** filter-only
-  column), rooms (type / status) and staff (role / status); feedback's existing
-  rating select moved into the toolbar. The old `serverPagination` prop is
-  gone — nothing used it. New `shared/section-card.tsx` is the ruled panel the
-  dashboard, reports and the settings form now share.
+  - Reset), a card-wrapped table with a muted uppercase header row, and a
+    footer with rows-per-page. Faceted filters are multi-select, so every
+    filterable column needs `filterFn: includesValue` (exported from
+    `shared/data-table.tsx`) — TanStack's default is single-value equality and
+    silently matches nothing once a second option is ticked. Wired up on
+    bookings (status / payment / channel — `source` is a **hidden** filter-only
+    column), rooms (type / status) and staff (role / status); feedback's existing
+    rating select moved into the toolbar. The old `serverPagination` prop is
+    gone — nothing used it. New `shared/section-card.tsx` is the ruled panel the
+    dashboard, reports and the settings form now share.
 - **User menu + self-service profile — DONE** (migration `20260807000100`).
-  *The bug*: the header's account menu threw on open and drew nothing. Base
+  _The bug_: the header's account menu threw on open and drew nothing. Base
   UI's `Menu.GroupLabel` reads `MenuGroupContext` and **raises** without a
   `Menu.Group` around it, so `DropdownMenuLabel` outside a `DropdownMenuGroup`
   takes the whole popup down rather than degrading. Wrap every
   `DropdownMenuLabel` in a `DropdownMenuGroup`.
-  *The menu* now holds the identity block, **Edit profile** → `/profile`, and
+  _The menu_ now holds the identity block, **Edit profile** → `/profile`, and
   Sign out (still `signOut({ scope: "local" })` — this is a SHARED Supabase
   project).
-  *Editing*: `booking.profiles` still has **no self-update policy**, and that is
+  _Editing_: `booking.profiles` still has **no self-update policy**, and that is
   deliberate — a row-level policy grants the whole ROW, and this row carries
   `is_active` (the deactivation flag `proxy.ts` enforces; a self-update would
   let a deactivated user reactivate themselves and undo the staff-management
@@ -298,7 +298,7 @@ Plans: `docs/superpowers/plans/`
   boundary. The sidebar showed Availability/Calendar/Bookings to everyone, so a
   role-less account (invited, or mid role-change) saw menu items that answered
   with a crash — indistinguishable from the app being broken.
-  *Two guards now, deliberately*: `requireRole` still throws and is for
+  _Two guards now, deliberately_: `requireRole` still throws and is for
   **server actions only** (their catch turns it into an `ActionResult`);
   **pages** use `pageRole(roles)`, which returns `CurrentUser | null` and
   renders `<AccessDenied requires={…} />` on null. Returning null rather than
@@ -306,7 +306,7 @@ Plans: `docs/superpowers/plans/`
   sees a generic message plus a digest and cannot tell a permission refusal
   from a genuine crash. `forbidden()` was rejected — it needs
   `experimental.authInterrupts`.
-  *One predicate for menu and guard*: `roleMatches(userRoles, allowed)` in
+  _One predicate for menu and guard_: `roleMatches(userRoles, allowed)` in
   **`lib/auth/roles.ts`**, NOT in `guards.ts` — guards imports the Supabase
   server client (`next/headers`), and the sidebar is a client component, so
   importing it from there pulls server-only code into the browser bundle and
@@ -324,14 +324,14 @@ Plans: `docs/superpowers/plans/`
   had been told a room number that was about to change. The function now takes
   a trailing **`p_room_id uuid default null`** — signature is
   `(name, phone, email, room_type_id, rate_tier_id, guest_count, check_in,
-  check_out, source, notes, status, room_id)`. Null keeps the old loop
+check_out, source, notes, status, room_id)`. Null keeps the old loop
   verbatim; supplied, the room is validated (exists, belongs to the type, not
   out of service) and inserted directly. Losing the exclusion-constraint race
   on a **named** room is an ERROR ("Room 103 is already booked for those
   dates"), never a silent fallback to a different room — honouring the type but
   not the room is the one outcome that would make the feature worse than
   useless. The auto-assign path still falls through to the next free room.
-  *UI*: the walk-in dialog gained a **Room** select defaulting to "Any free
+  _UI_: the walk-in dialog gained a **Room** select defaulting to "Any free
   room"; it and the live availability figure now come from ONE call
   (`listFreeRooms` → `fn_available_rooms`) rather than two, because the count
   is just the list's length and asking twice invited the answers to disagree.
@@ -342,7 +342,7 @@ Plans: `docs/superpowers/plans/`
   `""` is a cast error rather than "no preference". `audit_logs` records
   `room_chosen` so a human's choice is distinguishable from the auto-assign
   (every booking has a `room_id` either way).
-  *The portal deliberately does NOT pass it*: a guest picking "205" builds an
+  _The portal deliberately does NOT pass it_: a guest picking "205" builds an
   expectation housekeeping may have to break, and exposes the floor plan.
   **Trap**: adding the parameter minted a new function object, which Postgres
   grants to `PUBLIC` at `CREATE FUNCTION` time — the migration carries its own
@@ -358,16 +358,16 @@ Plans: `docs/superpowers/plans/`
   guest, stay window, rate, guest count and the money below. It is shared by
   both paths because both end the same way: a booking the guest can now walk
   into.
-  *Walk-in*: `createBooking` returns only ids, and the room is only knowable
+  _Walk-in_: `createBooking` returns only ids, and the room is only knowable
   after the server assigned it, so the dialog fetches `loadBookingDetail` after
   success. That fetch failing must NOT read as a failed booking — the booking
   exists and the toast already said so, so it just falls back to no panel.
-  *Online*: the trigger is verifying the deposit, so `VerificationPanel` gained
+  _Online_: the trigger is verifying the deposit, so `VerificationPanel` gained
   an **`onConfirmed`** callback separate from `onDone` (rejecting still uses
   `onDone`). `BookingManageDialog.onVerified()` re-reads the booking BEFORE
   showing the panel — otherwise it would render the `pending_verification` row
   the dialog was opened with rather than the confirmed one.
-  *Balance*: shown only when > 0. A walk-in settles in full, so a ₱0.00 line
+  _Balance_: shown only when > 0. A walk-in settles in full, so a ₱0.00 line
   would be noise there; a portal booking has a deposit paid and the rest due,
   which is the number the clerk actually has to say.
   Both panels render as **siblings** of their parent dialog, not nested: the
@@ -380,7 +380,7 @@ Plans: `docs/superpowers/plans/`
   Scanning the column — which is how the list is actually read — could not
   distinguish "in the building" from "arriving later". Every status now gets
   its own tinted badge in one family (`border-<hue>/30 bg-<hue>/15
-  text-<hue>-700 dark:text-<hue>-300`, the pattern the old amber override
+text-<hue>-700 dark:text-<hue>-300`, the pattern the old amber override
   already used) so they differ only by hue: amber = wants attention now, blue =
   settled/upcoming, emerald = in-house, slate = finished, rose = no-show.
   **`cancelled` is deliberately not a fill** — an outline reads as absence, and
@@ -396,25 +396,25 @@ Plans: `docs/superpowers/plans/`
   handing over a drawer needs a different document, so `/collections` is a new
   page open to **admin AND front_desk** (sidebar "Collections", in the
   front-desk group — it's shift work, not analysis).
-  *Attribution is `payments.recorded_by`, NOT `bookings.created_by`.* Those are
+  _Attribution is `payments.recorded_by`, NOT `bookings.created_by`._ Those are
   different people the moment one clerk books a guest and another collects the
   balance at check-out, and only the first answers "what is in this person's
   drawer". `/reports`' staff filter deliberately spans three columns
   (created_by / recorded_by / verified_by); this page uses exactly one.
-  *Cash is separated from non-cash* — GCash/card/bank money is already in an
+  _Cash is separated from non-cash_ — GCash/card/bank money is already in an
   account and is reconciled, not counted out. "Cash to remit" is the headline
   tile and the figure restated beside the signatures. `isCashMethod()` in
   `analytics.ts` is the single definition.
-  *Scope*: front desk is **pinned to their own id server-side** — `?staff=` is
+  _Scope_: front desk is **pinned to their own id server-side** — `?staff=` is
   ignored for them rather than validated, and the picker isn't rendered — so a
   hand-typed id can't open a colleague's sheet. Admin may pick anyone or view
   everybody; the "Received by" column and the by-receptionist breakdown appear
-  only in that all-staff view. Note this is a *product* boundary, not a
+  only in that all-staff view. Note this is a _product_ boundary, not a
   security one: `payments_staff_read` (migration 8) is gated on
   `fn_is_active_user()`, not on a role, which is precisely what lets this page
   exist for front desk without a new SECURITY DEFINER reader. Staff NAMES still
   come from `fn_staff_names` — `profiles` is self-only for front desk.
-  *Range defaults to TODAY* (not month-to-date like `/reports`): a remittance
+  _Range defaults to TODAY_ (not month-to-date like `/reports`): a remittance
   sheet is one shift. **Dates are the ONLY control** — `?from=&to=` in the URL,
   so a sheet stays reloadable and shareable. The receptionist picker, the
   payment-mode select and the range presets were all removed on request; the
@@ -423,10 +423,10 @@ Plans: `docs/superpowers/plans/`
   as a branch nothing can enter. **Consequence**: an admin now always sees the
   whole desk on one sheet — the by-receptionist breakdown and the "Received by"
   column still separate the drawers, but there is no longer a way to print ONE
-  named clerk's sheet. Front desk is unaffected, and its scoping is *stronger*
+  named clerk's sheet. Front desk is unaffected, and its scoping is _stronger_
   than before: whose sheet it is now follows purely from who is signed in, with
   nothing in the URL that could change it.
-  *Print* is the deliverable, and the printed sheet is a DIFFERENT document
+  _Print_ is the deliverable, and the printed sheet is a DIFFERENT document
   from the screen — it is three things only: `PrintHeader` (inn name, period,
   receptionist, timestamp), the **transactions table**, and `SignatureBlock`
   (restated total + cash, then **Turned over by / Received by** lines). Both
@@ -471,7 +471,7 @@ Plans: `docs/superpowers/plans/`
   is returned untouched and WITHOUT dimensions: rewriting it blindly would turn
   a working image into a 404, and losing the dimensions is only back to where
   we started. Zero is never emitted (`og:image:width 0` is worse than silence).
-  *Second bug found in the same pass*: `SITE_URL` was
+  _Second bug found in the same pass_: `SITE_URL` was
   `https://bti.kerisoftware.com`, but the deployment also answers on
   `https://www.banarestravellersinn.com`, which is the domain actually shared.
   `og:url` is what Facebook treats as canonical, so every share of a branded
@@ -484,7 +484,7 @@ Plans: `docs/superpowers/plans/`
   exists and still guards itself with `pageRole(["admin"])`, so bookmarks keep
   working — only the menu item is gone. Re-add one line to `ADMIN` in
   `app-sidebar.tsx` to bring it back; the page needs nothing.
-  *Where the code lives*: the maths is `computeCollectionsReport` in
+  _Where the code lives_: the maths is `computeCollectionsReport` in
   **`features/reports/analytics.ts`**, not in the new feature — that file is
   the one module pure enough to unit-test under `--experimental-strip-types`,
   and it already owns `rangeBounds`, so a collections sheet and a report can
@@ -501,7 +501,7 @@ Plans: `docs/superpowers/plans/`
   **177 total** (`npm run test:db`).
 - **Cancelled money leaves revenue + check-out stamps the real time — DONE**
   (no migration).
-  *Revenue*: a payment against a **cancelled** booking is no longer counted
+  _Revenue_: a payment against a **cancelled** booking is no longer counted
   anywhere — dashboard "Revenue today" and its 7-day bars, `/reports`
   Collected (and its by-mode / by-staff / by-day breakdowns and the payments
   ledger), and the `/collections` remittance sheet, cash included. Cancelling
@@ -522,7 +522,7 @@ Plans: `docs/superpowers/plans/`
   surfaces in the Collected hint, the Total-collected tile, and the printed
   signature block, so a short drawer has a stated reason. `cancelBooking` now
   revalidates `/calendar` and `/dashboard` too.
-  *Actual check-out*: a booked check-out is a PLAN (block = check-in +
+  _Actual check-out_: a booked check-out is a PLAN (block = check-in +
   `duration_hours`, which already crosses midnight correctly — 17:00 + 12h is
   05:00 the next day in both `pricing.ts` and `fn_create_booking`; overnight =
   standard noon). `checkOut` now replaces it with the moment staff pressed the
@@ -552,7 +552,7 @@ Plans: `docs/superpowers/plans/`
   not) — so **no migration was needed**: the SQL runs its unchanged
   `ceil(ms/24h)` over the same window the preview priced, and the two agree by
   construction rather than by coincidence.
-  *UI*: the walk-in dialog's check-out is now `type="date"` labelled
+  _UI_: the walk-in dialog's check-out is now `type="date"` labelled
   "Check-out (12:00 noon)" with `min` = the day after arrival — offering an
   hour would be offering a choice that isn't one, and a same-day pick prices a
   night nobody sleeps. Prefill from the availability page is a datetime-local
@@ -563,7 +563,115 @@ Plans: `docs/superpowers/plans/`
   the same way, and the free count only reuses the searched room list when the
   tier's window IS the searched one (it now falls through to `countAvailable`
   for a snapped overnight, as it already did for blocks).
-  *Leaving earlier is a different fact*: the booked window stays noon and
+  _Leaving earlier is a different fact_: the booked window stays noon and
   check-out stamps the real time over it (see the entry above). Tests are local
   wall-clock (`at()`), because "out by noon" is a wall-clock rule:
   `pricing.test.ts` +6 (11). **206 total** (`npm run test:db`).
+- **Only an admin may DELETE a booking — DONE** (migration `20260817000100`).
+  _The boundary was already open_: `bookings_staff_write` (migration 6) is
+  `for all`, and `for all` includes DELETE — every active staff member could
+  erase a booking, its payments and its proofs with one REST call. Nothing in
+  the UI offered it, which is exactly why it went unnoticed: the permission
+  existed and the product didn't. The policy is now split into
+  `bookings_staff_insert` / `bookings_staff_update` (active staff, unchanged
+  behaviour) and `bookings_admin_delete` gated on **`fn_is_admin() and
+fn_is_active_user()`** — `fn_is_admin()` alone never looked at `is_active`,
+  so a deactivated admin with a live JWT would have had only `proxy.ts` in the
+  way. SELECT is untouched (`bookings_staff_read` already grants it).
+  _Delete is NOT a tidier cancel, and the UI says so._ Cancelling keeps the row
+  and takes its money out of revenue (see the cancelled-money entry above),
+  which is what an inn explaining last month's figures needs; deleting is for a
+  row that should never have existed — a duplicate, a test booking, a guest
+  keyed twice — and it removes the booking from every report retrospectively.
+  So the confirm dialog names the payment count and total it will erase and
+  points at cancel instead, and `deleteBooking` (`features/bookings/actions.ts`,
+  `requireRole(["admin"])`) writes a **snapshot** of the row + its payments to
+  `audit_logs` first. That snapshot survives because `audit_logs.entity_id` is a
+  plain uuid with **no FK to bookings** — the one record that outlives what it
+  describes.
+  _Three things the cascade doesn't do_: `payments` and `booking_proofs` cascade
+  (RI actions bypass RLS, so no policy is needed), but the **storage objects**
+  behind the proofs are reached by nothing, so the action reads their paths
+  BEFORE the delete and removes them after — best-effort and logged, since the
+  booking is already gone and a failure there would report one that didn't
+  happen. A `checked_in` booking's room is left `occupied` by the cascade, so
+  the action lands it on `cleaning`, same as check-out. And an RLS-refused
+  DELETE is **zero rows, not an error**, so the action `.select("id")`s and
+  treats an empty result as a refusal — otherwise front desk would be told it
+  worked.
+  _UI_: `BookingManageDialog` gained `canDelete` (default **false** — absent,
+  not disabled, for everyone else), passed only from `/bookings` via
+  `hasRole(user, "admin")`. Deliberately NOT wired into the dashboard's
+  arrivals/departures: that list is a shift running its day, and an erase button
+  has no business beside "check in". `BookingsTable`'s columns became
+  `makeColumns(canDelete)` + `useMemo` — new column identities each render would
+  reset the table's sorting and filters. Deleting can't use `runAction` (it
+  re-reads the booking, which would toast "not found" over the success), so it
+  closes the dialog and `router.refresh()`es the list.
+  _Trap_: `.select("a, " + "b")` on a typed supabase-js client widens to plain
+  `string` and the row infers as `GenericStringError` — the select list must be
+  ONE string literal. New `delete-booking.test.mjs` (7 DB, mostly negative:
+  front desk / anon / deactivated admin all refused with the row still there,
+  front desk can still UPDATE, cascades, and the audit entry outliving the
+  booking). **213 total** (`npm run test:db`).
+- **The inn's clock is named, not inherited — DONE** (no migration; new
+  `src/lib/inn-time.ts` + data fix `supabase/fixes/20260817_utc_shifted_booking_windows.sql`).
+  _The bug_: a walk-in typed as **Aug 17, 8:17 PM** saved and displayed as
+  **Aug 18, 4:17 AM** — exactly +8h. `datetime-local` inputs send a zoneless
+  string, and `new Date("2026-08-17T20:17")` reads it in the **PROCESS's**
+  timezone: Asia/Manila on a dev laptop, **UTC on the deployed server**. So it
+  was right in `npm run dev` and eight hours wrong in production — and every
+  test passed, because the tests ran on the laptop too. Reading back was never
+  the problem (`parsePeriod` keeps Postgres's `+00`); the corruption was on
+  WRITE.
+  _Blast radius was never one field_: `checkOutValue`→`toIso` stored the noon
+  check-out at **8 PM**; `checkOutAtNoon`'s `setHours(12)`, the dashboard's and
+  reports' `setHours(14)`/`setHours(0)` night window, `rangeBounds`,
+  `sameDay`/`startOfDay`, the calendar's day columns and `getDay()` weekend
+  shading, `listFreeRooms`' availability window, the portal's future-date
+  guard, and every prefilled default were all on the same inherited clock — the
+  reporting "day" ran **8 AM → 8 AM**.
+  _The fix is one module_: `lib/inn-time.ts` (`INN_TIME_ZONE = "Asia/Manila"`)
+  with `fromInnClock` / `innTime` / `innAtHour` / `innStartOfDay` /
+  `innAddDays` / `innSameDay` / `innHour` / `innWeekday` / `innDateValue` /
+  `innClockValue` / `innFormatter`. The offset is read from the **zone
+  database** via `Intl`, not hardcoded to +08:00 — PH has had no DST since
+  1978, but that is a fact about 1978, and the two-pass inversion in `innTime`
+  costs nothing and is DST-correct anyway. **Rule: no `setHours`/`getHours`/
+  `getDate` on a Date meant as inn time, and no zoneless string to `new Date()`
+  — route it through here.** A string that already carries a zone (`…Z`,
+  `…+08:00`) is an INSTANT and is passed through untouched, which is what makes
+  it safe to feed Postgres `created_at` values through the same helpers.
+  _Display is pinned too_ (`innFormatter`, ~20 call sites): a device set to
+  another zone must still show the hour the front desk will read out loud.
+  _Import mechanics_: the pure modules (`reports.ts`, `analytics.ts`,
+  `pricing.ts`, `rooms/occupancy.ts`) import it **relatively with the `.ts`
+  extension** — Node's ESM resolver does no extension guessing and can't read
+  the `@/*` alias — which needed `allowImportingTsExtensions` in `tsconfig.json`
+  (safe: `noEmit`). That flag also cleared 10 pre-existing TS5097 errors in
+  `supabase/tests/*.ts`. Everything else uses `@/lib/inn-time`.
+  _Tests_: every `at()` helper built dates from PROCESS-local parts, so the
+  suites measured the machine. They now build inn time. New
+  `inn-time.test.ts` (17) and **`timezone-independence.mjs`** (`npm run test:tz`,
+  also chained into `test:db`), which re-runs all 10 pure suites under UTC,
+  Asia/Manila, America/New_York, Pacific/Kiritimati and **Australia/Lord_Howe**
+  (a :30 offset WITH DST, so a whole-hour assumption fails there instead of in
+  production one October). This is the test that would have caught the original
+  bug. **230 total**.
+  _Existing production rows are still shifted_ — the code fix doesn't move
+  them. `supabase/fixes/20260817_utc_shifted_booking_windows.sql` is a
+  three-step, roll-back-able script (deliberately NOT a migration: it describes
+  damage to ONE database, and on a fresh local stack it would corrupt correct
+  data). It fingerprints shifted rows by the house rule — an overnight stay not
+  due out at 12:00 wasn't written on the inn's clock — which also makes it
+  idempotent, since after the fix the fingerprint stops matching. Two
+  populations: ordinary rows move both ends, but a **`checked_out` row's upper
+  bound was stamped by `actualStayWindow` from `new Date()`, an absolute
+  instant that was always correct**, so only its check-in moves. **Block
+  bookings cannot be fingerprinted at all** (check-out is just check-in +
+  duration, so a shifted row is indistinguishable from an ordinary one) and are
+  left for manual correction by reference code — guessing would put guests in
+  the wrong room at the wrong hour. Money is untouched throughout:
+  `payments.created_at` is `now()`, and `quoted_total` was computed from a
+  window shifted at both ends, so the night count and the price are what the
+  guest agreed to.

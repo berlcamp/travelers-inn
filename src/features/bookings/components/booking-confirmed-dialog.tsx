@@ -13,8 +13,9 @@ import {
 import { peso } from "@/features/bookings/pricing";
 import { RoomNumberBox } from "./room-number-box";
 import type { BookingRow } from "@/features/bookings/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   weekday: "short",
   month: "short",
   day: "numeric",

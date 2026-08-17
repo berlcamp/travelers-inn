@@ -16,6 +16,7 @@ import {
   type ReportPayment,
 } from "../../src/features/reports/analytics.ts";
 import { toCsv } from "../../src/features/reports/csv.ts";
+import { innTime } from "../../src/lib/inn-time.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -31,7 +32,7 @@ function test(name: string, fn: () => void) {
 }
 
 function at(y: number, m: number, d: number, h = 12, min = 0): string {
-  return new Date(y, m - 1, d, h, min, 0, 0).toISOString();
+  return innTime(y, m, d, h, min).toISOString();
 }
 
 function booking(over: Partial<ReportBooking> = {}): ReportBooking {
@@ -190,7 +191,11 @@ test("money on a cancelled booking is out of every collected figure", () => {
   assert.equal(r.paymentCount, 1);
   assert.equal(r.byMethod[0].amount, 500, "and out of the breakdowns");
   assert.equal(r.byStaff[0].amount, 500);
-  assert.equal(r.daily.reduce((acc, day) => acc + day.value, 0), 500, "and out of the day series");
+  assert.equal(
+    r.daily.reduce((acc, day) => acc + day.value, 0),
+    500,
+    "and out of the day series"
+  );
   assert.equal(r.payments.length, 1, "and off the ledger it would otherwise print on");
   assert.deepEqual(
     r.cancelledExcluded,

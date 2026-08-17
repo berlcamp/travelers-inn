@@ -12,8 +12,9 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { revokeInvitation } from "@/features/users/actions";
 import { ROLE_LABELS } from "@/features/users/schemas";
 import type { InvitationRow } from "@/features/users/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" });
+const dt = innFormatter({ month: "short", day: "numeric", year: "numeric" });
 
 function StatusBadge({ invitation }: { invitation: InvitationRow }) {
   if (invitation.status === "accepted") return <Badge>Accepted</Badge>;

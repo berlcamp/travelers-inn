@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { DataTable, includesValue } from "@/components/shared/data-table";
@@ -14,8 +15,9 @@ import {
 } from "@/features/bookings/schemas";
 import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import type { BookingRow } from "@/features/bookings/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   month: "short",
   day: "numeric",
   hour: "numeric",
@@ -27,11 +29,12 @@ function fmt(iso: string) {
   return Number.isNaN(d.getTime()) ? "—" : dt.format(d);
 }
 
-function ManageAction({ booking }: { booking: BookingRow }) {
+function ManageAction({ booking, canDelete }: { booking: BookingRow; canDelete: boolean }) {
   return (
     <div className="flex justify-end">
       <BookingManageDialog
         bookingId={booking.id}
+        canDelete={canDelete}
         trigger={
           <Button variant="outline" size="sm">
             Manage
@@ -42,7 +45,10 @@ function ManageAction({ booking }: { booking: BookingRow }) {
   );
 }
 
-const columns: ColumnDef<BookingRow>[] = [
+// A factory rather than a module-level const because the last column has to
+// know whether this user may delete. Memoised at the call site — new column
+// identities on every render would reset the table's sorting and filters.
+const makeColumns = (canDelete: boolean): ColumnDef<BookingRow>[] => [
   {
     accessorKey: "reference_code",
     header: "Ref",
@@ -137,7 +143,7 @@ const columns: ColumnDef<BookingRow>[] = [
   {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => <ManageAction booking={row.original} />,
+    cell: ({ row }) => <ManageAction booking={row.original} canDelete={canDelete} />,
   },
 ];
 
@@ -156,7 +162,14 @@ const CHANNEL_OPTIONS = Object.entries(BOOKING_SOURCE_LABELS).map(([value, label
   label,
 }));
 
-export function BookingsTable({ bookings }: { bookings: BookingRow[] }) {
+export function BookingsTable({
+  bookings,
+  canDelete = false,
+}: {
+  bookings: BookingRow[];
+  canDelete?: boolean;
+}) {
+  const columns = useMemo(() => makeColumns(canDelete), [canDelete]);
   return (
     <DataTable
       columns={columns}

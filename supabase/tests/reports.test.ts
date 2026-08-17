@@ -2,7 +2,12 @@
 //   node --experimental-strip-types supabase/tests/reports.test.ts
 // No DB — computeDashboard is pure. Relative import (no @/ alias).
 import assert from "node:assert/strict";
-import { computeDashboard, type RptBooking, type RptPayment } from "../../src/features/reports/reports.ts";
+import {
+  computeDashboard,
+  type RptBooking,
+  type RptPayment,
+} from "../../src/features/reports/reports.ts";
+import { innTime, innAddDays, innAtHour } from "../../src/lib/inn-time.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -17,13 +22,12 @@ function test(name: string, fn: () => void) {
   }
 }
 
-// Fixed "now" so day math is deterministic.
-const now = new Date("2026-08-15T10:00:00");
+// Fixed "now" so day math is deterministic — and fixed on the INN's clock, so
+// "10:00 on 15 Aug" is the same instant on a UTC server as on a Manila laptop.
+// See src/lib/inn-time.ts.
+const now = innTime(2026, 8, 15, 10);
 function at(day: number, h: number, m = 0) {
-  const d = new Date(now);
-  d.setDate(d.getDate() + day);
-  d.setHours(h, m, 0, 0);
-  return d.toISOString();
+  return innAtHour(innAddDays(now, day), h, m).toISOString();
 }
 
 function booking(over: Partial<RptBooking>): RptBooking {
@@ -46,11 +50,32 @@ const roomIds = ["r1", "r2", "r3", "r4"];
 
 const bookings: RptBooking[] = [
   // Arrives today (confirmed), room r1.
-  booking({ id: "b1", roomId: "r1", status: "confirmed", checkIn: at(0, 14), checkOut: at(2, 12), quotedTotal: 2000 }),
+  booking({
+    id: "b1",
+    roomId: "r1",
+    status: "confirmed",
+    checkIn: at(0, 14),
+    checkOut: at(2, 12),
+    quotedTotal: 2000,
+  }),
   // Also arrives today, room r2.
-  booking({ id: "b2", roomId: "r2", status: "confirmed", checkIn: at(0, 14), checkOut: at(1, 12), quotedTotal: 1000 }),
+  booking({
+    id: "b2",
+    roomId: "r2",
+    status: "confirmed",
+    checkIn: at(0, 14),
+    checkOut: at(1, 12),
+    quotedTotal: 1000,
+  }),
   // Checked in, departs today, room r3.
-  booking({ id: "b3", roomId: "r3", status: "checked_in", checkIn: at(-1, 14), checkOut: at(0, 12), quotedTotal: 1500 }),
+  booking({
+    id: "b3",
+    roomId: "r3",
+    status: "checked_in",
+    checkIn: at(-1, 14),
+    checkOut: at(0, 12),
+    quotedTotal: 1500,
+  }),
   // Cancelled — ignored.
   booking({ id: "b4", roomId: "r4", status: "cancelled", checkIn: at(0, 14), checkOut: at(1, 12) }),
 ];

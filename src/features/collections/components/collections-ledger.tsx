@@ -3,14 +3,15 @@ import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/features/bookings/p
 import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import { isCashMethod } from "@/features/reports/analytics";
 import type { CollectionRow } from "@/features/collections/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   month: "short",
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
 });
-const timeOnly = new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit" });
+const timeOnly = innFormatter({ hour: "numeric", minute: "2-digit" });
 
 // Every row, never paginated: this is the sheet counted against a drawer, and a
 // page 2 that never prints would hide money. It scrolls on screen and prints in

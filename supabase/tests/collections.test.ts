@@ -11,6 +11,7 @@ import {
   isCashMethod,
   type ReportPayment,
 } from "../../src/features/reports/analytics.ts";
+import { innTime } from "../../src/lib/inn-time.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -25,8 +26,11 @@ function test(name: string, fn: () => void) {
   }
 }
 
+// INN wall-clock, not the machine's: a remittance range is a shift at the
+// inn, so these must assert the same instants under TZ=UTC as under
+// TZ=Asia/Manila. See src/lib/inn-time.ts.
 function at(y: number, m: number, d: number, h = 12, min = 0): string {
-  return new Date(y, m - 1, d, h, min, 0, 0).toISOString();
+  return innTime(y, m, d, h, min).toISOString();
 }
 
 function payment(over: Partial<ReportPayment> = {}): ReportPayment {

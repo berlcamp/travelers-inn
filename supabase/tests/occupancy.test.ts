@@ -6,10 +6,8 @@
 // local to the inn; literal UTC strings would make these pass or fail
 // depending on the machine's timezone.
 import assert from "node:assert/strict";
-import {
-  deriveOccupancy,
-  type OccupancyBooking,
-} from "../../src/features/rooms/occupancy.ts";
+import { deriveOccupancy, type OccupancyBooking } from "../../src/features/rooms/occupancy.ts";
+import { innTime } from "../../src/lib/inn-time.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -24,9 +22,11 @@ function test(name: string, fn: () => void) {
   }
 }
 
-const NOW = new Date(2026, 7, 8, 15, 0, 0, 0); // 8 Aug 2026, 3pm local
+// INN wall-clock (see src/lib/inn-time.ts), so the calendar these tests assert
+// on is the inn's calendar whatever zone the test process runs in.
+const NOW = innTime(2026, 8, 8, 15); // 8 Aug 2026, 3pm at the inn
 function at(y: number, m: number, d: number, h = 12): string {
-  return new Date(y, m - 1, d, h, 0, 0, 0).toISOString();
+  return innTime(y, m, d, h).toISOString();
 }
 
 function bk(over: Partial<OccupancyBooking> = {}): OccupancyBooking {

@@ -2,8 +2,9 @@
 
 import { describeTrailEntry } from "@/features/bookings/trail";
 import type { TrailEntry } from "@/features/bookings/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   month: "short",
   day: "numeric",
   hour: "numeric",

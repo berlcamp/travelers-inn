@@ -4,8 +4,9 @@ import { BOOKING_STATUS_LABELS, type BookingStatus } from "@/features/bookings/s
 import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import { BookingStatusBadge } from "@/features/bookings/components/booking-status-badge";
 import type { ReportBooking, ReportPayment } from "@/features/reports/analytics";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   month: "short",
   day: "numeric",
   hour: "numeric",

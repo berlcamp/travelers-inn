@@ -12,13 +12,15 @@ import {
   type ReportFilters,
   type ReportPayment,
 } from "./analytics";
+import { innAddDays } from "@/lib/inn-time";
 
 // Fetches the raw data for the dashboard and computes the metrics. Reads run
 // under RLS as the signed-in staff member.
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
-  const since = new Date();
-  since.setDate(since.getDate() - 8);
+  // 8 inn-days back, so the dashboard's 7-day series is always fully covered
+  // whatever zone this runs in (src/lib/inn-time.ts).
+  const since = innAddDays(new Date(), -8);
 
   const [{ data: rooms }, { data: bookings }, { data: payments }] = await Promise.all([
     supabase.from("rooms").select("id"),

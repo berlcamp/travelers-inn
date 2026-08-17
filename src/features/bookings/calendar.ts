@@ -1,6 +1,14 @@
 import type { BookingStatus } from "./schemas";
 import type { BookingRow } from "./repository";
 import type { RoomWithType } from "@/features/rooms/repository";
+import {
+  fromInnClock,
+  innAddDays,
+  innDateValue,
+  innFormatter,
+  innStartOfDay,
+  innWeekday,
+} from "@/lib/inn-time";
 
 export type CalendarCell = {
   occupied: boolean;
@@ -27,32 +35,16 @@ export type CalendarData = {
 // Bookings that count as occupying a room on the calendar. A pending_verification
 // booking already holds its room (the DB exclusion constraint blocks a second
 // booking over the same window), so it must render as occupied too.
-const ACTIVE: BookingStatus[] = [
-  "pending_verification",
-  "confirmed",
-  "checked_in",
-  "checked_out",
-];
+const ACTIVE: BookingStatus[] = ["pending_verification", "confirmed", "checked_in", "checked_out"];
 
-const weekdayFmt = new Intl.DateTimeFormat("en-PH", { weekday: "short" });
-const dayFmt = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short" });
+const weekdayFmt = innFormatter({ weekday: "short" });
+const dayFmt = innFormatter({ day: "numeric", month: "short" });
 
-function atMidnight(d: Date): Date {
-  const c = new Date(d);
-  c.setHours(0, 0, 0, 0);
-  return c;
-}
-
-function addDays(d: Date, n: number): Date {
-  const c = new Date(d);
-  c.setDate(c.getDate() + n);
-  return c;
-}
-
-function isoDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// Every day boundary on this grid is a day at the INN — see src/lib/inn-time.ts.
+// Read off the server's clock the columns would start at 8 AM Manila, and a
+// stay would paint into the wrong cell.
+const addDays = innAddDays;
+const isoDate = innDateValue;
 
 // Builds a rooms × days occupancy grid over `days` days starting at `startISO`
 // (local wall-clock). A room-day is occupied when an active booking on that
@@ -63,12 +55,18 @@ export function buildCalendar(
   rooms: RoomWithType[],
   bookings: BookingRow[]
 ): CalendarData {
-  const start = atMidnight(startISO ? new Date(`${startISO}T00:00:00`) : new Date());
+  const start = startISO ? fromInnClock(startISO) : innStartOfDay(new Date());
   const dayStarts = Array.from({ length: days }, (_, i) => addDays(start, i));
 
   const dayHeaders = dayStarts.map((d) => {
-    const dow = d.getDay();
-    return { weekday: weekdayFmt.format(d), day: dayFmt.format(d), isWeekend: dow === 0 || dow === 6 };
+    // Day-of-week at the inn, not where this runs: getDay() on a UTC server
+    // flips a Sunday column to Saturday for the whole evening.
+    const dow = innWeekday(d);
+    return {
+      weekday: weekdayFmt.format(d),
+      day: dayFmt.format(d),
+      isWeekend: dow === 0 || dow === 6,
+    };
   });
 
   const active = bookings.filter((b) => ACTIVE.includes(b.status as BookingStatus));
@@ -90,7 +88,8 @@ export function buildCalendar(
         guestName: hit.guest_name,
         status: hit.status as BookingStatus,
         // Only label the first visible day of a run so the bar reads cleanly.
-        isStart: isStart && (dayStart.getTime() === start.getTime() || (ci >= dayStart && ci < dayEnd)),
+        isStart:
+          isStart && (dayStart.getTime() === start.getTime() || (ci >= dayStart && ci < dayEnd)),
       };
     });
     return { roomId: room.id, label: room.label, typeName: room.room_type?.name ?? "", cells };

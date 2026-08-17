@@ -29,12 +29,20 @@ import { BookingConfirmedDialog } from "./booking-confirmed-dialog";
 import { quote, peso, checkOutValue, type RateTier } from "@/features/bookings/pricing";
 import type { RoomTypeWithTiers } from "@/features/rooms/repository";
 import type { BookingRow } from "@/features/bookings/repository";
+import {
+  fromInnClock,
+  innAddDays,
+  innAtHour,
+  innClockValue,
+  innDateValue,
+  innFormatter,
+} from "@/lib/inn-time";
 
-// "YYYY-MM-DDTHH:mm" in local wall-clock, for datetime-local inputs.
-function localDateTime(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+// "YYYY-MM-DDTHH:mm" on the INN's clock, for datetime-local inputs. Pinned
+// rather than taken from the browser because the server reads these strings
+// back as inn time (features/bookings/actions.ts) — a clerk on a laptop set to
+// another zone would otherwise book an hour they never typed.
+const localDateTime = innClockValue;
 
 // The check-out field holds a DATE only: an overnight stay is due out at noon
 // (pricing.checkOutValue), so there is no hour for the desk to choose. Prefill
@@ -47,10 +55,9 @@ function dateOnly(value: string) {
 /** The earliest check-out the desk can pick: the day after arrival. Stops a
  *  same-day overnight, which would price a night the guest never sleeps. */
 function nightAfter(checkIn: string) {
-  const d = new Date(checkIn);
+  const d = fromInnClock(checkIn);
   if (Number.isNaN(d.getTime())) return undefined;
-  d.setDate(d.getDate() + 1);
-  return dateOnly(localDateTime(d));
+  return innDateValue(innAddDays(d, 1));
 }
 
 // What the availability page hands over when staff press "Book" on a result,
@@ -63,10 +70,8 @@ export type WalkInPrefill = Partial<
 >;
 
 function defaults(prefill?: WalkInPrefill): BookingFormValues {
-  const checkIn = new Date();
-  checkIn.setHours(13, 0, 0, 0);
-  const checkOut = new Date(checkIn);
-  checkOut.setDate(checkOut.getDate() + 1);
+  const checkIn = innAtHour(new Date(), 13);
+  const checkOut = innAddDays(checkIn, 1);
   const merged: BookingFormValues = {
     guest_name: "",
     guest_phone: "",
@@ -91,7 +96,7 @@ function defaults(prefill?: WalkInPrefill): BookingFormValues {
 
 const ANY_ROOM_LABEL = "Any free room";
 
-const dtFmt = new Intl.DateTimeFormat("en-PH", {
+const dtFmt = innFormatter({
   weekday: "short",
   month: "short",
   day: "numeric",
@@ -169,10 +174,10 @@ export function WalkInDialog({
         excess_person_rate: Number(selectedType.excess_person_rate),
       },
       Number(guestCount) || 0,
-      new Date(checkIn),
+      fromInnClock(checkIn),
       // checkOutValue turns the field's date into local noon — parsing the
       // bare "YYYY-MM-DD" would read it as UTC midnight, a day early here.
-      isBlock ? null : checkOut ? new Date(checkOutValue(checkOut)) : null
+      isBlock ? null : checkOut ? fromInnClock(checkOutValue(checkOut)) : null
     );
   }, [selectedType, selectedTier, guestCount, checkIn, checkOut, isBlock]);
 

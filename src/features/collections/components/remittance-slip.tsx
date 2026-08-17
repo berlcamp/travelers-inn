@@ -1,10 +1,11 @@
 import { peso } from "@/features/bookings/pricing";
+import { innFormatter } from "@/lib/inn-time";
 
 // The two print-only pieces that turn a screen of figures into a document two
 // people can sign. Both are `hidden print:…` rather than always-on: on screen
 // they would be dead space, and a signature line nobody can sign is noise.
 
-const stampFmt = new Intl.DateTimeFormat("en-PH", {
+const stampFmt = innFormatter({
   dateStyle: "medium",
   timeStyle: "short",
 });

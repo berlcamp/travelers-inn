@@ -4,26 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { innAddDays, innDateValue } from "@/lib/inn-time";
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-function dateStr(d: Date) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// The inn's dates, not the guest's device's: someone booking from Dubai still
+// means "the 18th" as the inn counts it. See src/lib/inn-time.ts.
+const dateStr = innDateValue;
 
 // The portal searches a nightly window; day-use blocks and exact guest counts
 // are chosen on the booking page. Check-in defaults to 1pm, checkout to 12noon.
-export function SearchBar({
-  defaults,
-}: {
-  defaults?: { checkIn?: string; checkOut?: string };
-}) {
+export function SearchBar({ defaults }: { defaults?: { checkIn?: string; checkOut?: string } }) {
   const router = useRouter();
 
   const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrow = innAddDays(today, 1);
 
   const [inDate, setInDate] = useState(defaults?.checkIn?.slice(0, 10) ?? dateStr(today));
   const [outDate, setOutDate] = useState(defaults?.checkOut?.slice(0, 10) ?? dateStr(tomorrow));
@@ -41,10 +34,20 @@ export function SearchBar({
   return (
     <div className="border-border shadow-primary/5 flex flex-col gap-3 rounded-2xl border bg-white p-3 shadow-xl ring-1 ring-black/[0.02] sm:flex-row sm:items-end sm:gap-2.5">
       <Field label="Check-in">
-        <input type="date" value={inDate} onChange={(e) => setInDate(e.target.value)} className={fieldCls} />
+        <input
+          type="date"
+          value={inDate}
+          onChange={(e) => setInDate(e.target.value)}
+          className={fieldCls}
+        />
       </Field>
       <Field label="Check-out">
-        <input type="date" value={outDate} onChange={(e) => setOutDate(e.target.value)} className={fieldCls} />
+        <input
+          type="date"
+          value={outDate}
+          onChange={(e) => setOutDate(e.target.value)}
+          className={fieldCls}
+        />
       </Field>
       <Button size="lg" className="h-11 shrink-0" onClick={submit}>
         <Search className="size-4" /> Search
@@ -56,7 +59,7 @@ export function SearchBar({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col gap-1.5">
-      <label className="text-muted-foreground px-1 text-xs font-medium uppercase tracking-wide">
+      <label className="text-muted-foreground px-1 text-xs font-medium tracking-wide uppercase">
         {label}
       </label>
       {children}

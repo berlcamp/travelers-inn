@@ -9,6 +9,7 @@ import {
   type RateTier,
   type Occupancy,
 } from "../../src/features/bookings/pricing.ts";
+import { innTime } from "../../src/lib/inn-time.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -23,19 +24,33 @@ function test(name: string, fn: () => void) {
   }
 }
 
-// Overnight windows are built from LOCAL date parts: the noon check-out is a
-// wall-clock rule ("out by 12 noon"), so a UTC literal would test a different
-// hour on every machine.
+// Overnight windows are built from INN wall-clock parts: the noon check-out is
+// a wall-clock rule ("out by 12 noon"), so a UTC literal would test a different
+// hour, and `new Date(y, m-1, d, h)` would test a different INSTANT on every
+// machine — which is exactly the production bug this guards (see lib/inn-time.ts).
+// innTime() pins it, so these assertions hold under TZ=UTC and TZ=Asia/Manila alike.
 function at(y: number, m: number, d: number, h: number, min = 0): Date {
-  return new Date(y, m - 1, d, h, min, 0, 0);
+  return innTime(y, m, d, h, min);
 }
 
 const couple: Occupancy = { base_occupancy: 2, max_occupancy: 2, excess_person_rate: 0 };
 const travellers: Occupancy = { base_occupancy: 4, max_occupancy: 6, excess_person_rate: 350 };
 
 const block3: RateTier = { id: "a", label: "3 hrs", kind: "block", duration_hours: 3, price: 500 };
-const overnightCouple: RateTier = { id: "b", label: "Overnight", kind: "overnight", duration_hours: null, price: 1250 };
-const overnightTrav: RateTier = { id: "c", label: "Overnight", kind: "overnight", duration_hours: null, price: 1500 };
+const overnightCouple: RateTier = {
+  id: "b",
+  label: "Overnight",
+  kind: "overnight",
+  duration_hours: null,
+  price: 1250,
+};
+const overnightTrav: RateTier = {
+  id: "c",
+  label: "Overnight",
+  kind: "overnight",
+  duration_hours: null,
+  price: 1500,
+};
 
 console.log("pricing quote()");
 

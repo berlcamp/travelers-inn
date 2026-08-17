@@ -13,6 +13,7 @@ import { createPortalBookingWithProof } from "@/features/portal/actions";
 import { depositFor } from "@/features/bookings/deposit";
 import { quote, peso, type RateTier } from "@/features/bookings/pricing";
 import type { AvailabilityOption, PortalPaymentInfo } from "@/features/portal/repository";
+import { fromInnClock, innAddDays, innDateValue } from "@/lib/inn-time";
 
 const contactSchema = z.object({
   guest_name: z.string().trim().min(1, "Please enter your name").max(120),
@@ -23,17 +24,13 @@ const contactSchema = z.object({
 });
 type ContactValues = z.infer<typeof contactSchema>;
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
+// Dates here are the inn's (src/lib/inn-time.ts): the server parses the values
+// this form submits on the inn's clock, so the arithmetic has to agree.
 function addNights(dateStr: string, nights: number) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + nights);
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T12:00`;
+  return `${innDateValue(innAddDays(fromInnClock(dateStr), nights))}T12:00`;
 }
 function nightsBetween(checkIn: string, checkOut: string) {
-  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  const ms = fromInnClock(checkOut).getTime() - fromInnClock(checkIn).getTime();
   return Number.isNaN(ms) ? 1 : Math.max(1, Math.ceil(ms / 86_400_000));
 }
 
@@ -151,8 +148,10 @@ export function PortalBookingForm({
           </p>
         </div>
         <div className="bg-muted/60 w-full rounded-xl p-4">
-          <div className="text-muted-foreground text-xs uppercase tracking-wide">Your reference</div>
-          <div className="font-[family-name:var(--font-fraunces)] text-primary text-3xl font-semibold tracking-wide">
+          <div className="text-muted-foreground text-xs tracking-wide uppercase">
+            Your reference
+          </div>
+          <div className="text-primary font-[family-name:var(--font-fraunces)] text-3xl font-semibold tracking-wide">
             {confirmed.code}
           </div>
         </div>
@@ -190,7 +189,7 @@ export function PortalBookingForm({
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
       {/* Rate tier */}
       <div className="flex flex-col gap-2">
-        <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           Choose a rate
         </span>
         <div className="grid gap-2">
@@ -223,16 +222,10 @@ export function PortalBookingForm({
       {/* Nights (overnight only) + guests */}
       <div className="grid grid-cols-2 gap-4">
         {isOvernight ? (
-          <Stepper
-            label="Nights"
-            value={nights}
-            min={1}
-            max={30}
-            onChange={setNights}
-          />
+          <Stepper label="Nights" value={nights} min={1} max={30} onChange={setNights} />
         ) : (
           <div className="flex flex-col gap-1.5">
-            <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Duration
             </span>
             <div className="border-border flex h-11 items-center rounded-lg border px-3 text-sm">
@@ -258,7 +251,9 @@ export function PortalBookingForm({
             <div className="flex justify-between">
               <span className="text-muted-foreground">
                 {tier?.label}
-                {priceQuote.nights ? ` · ${priceQuote.nights} night${priceQuote.nights === 1 ? "" : "s"}` : ""}
+                {priceQuote.nights
+                  ? ` · ${priceQuote.nights} night${priceQuote.nights === 1 ? "" : "s"}`
+                  : ""}
               </span>
               <span>{peso.format(priceQuote.roomTotal)}</span>
             </div>
@@ -279,9 +274,24 @@ export function PortalBookingForm({
       </div>
 
       {/* Contact */}
-      <FormInput control={form.control} name="guest_name" label="Full name" placeholder="Juan dela Cruz" />
-      <FormInput control={form.control} name="guest_phone" label="Contact number" placeholder="09xx xxx xxxx" />
-      <FormInput control={form.control} name="guest_email" label="Email (optional)" placeholder="you@example.com" />
+      <FormInput
+        control={form.control}
+        name="guest_name"
+        label="Full name"
+        placeholder="Juan dela Cruz"
+      />
+      <FormInput
+        control={form.control}
+        name="guest_phone"
+        label="Contact number"
+        placeholder="09xx xxx xxxx"
+      />
+      <FormInput
+        control={form.control}
+        name="guest_email"
+        label="Email (optional)"
+        placeholder="you@example.com"
+      />
 
       {/* Deposit */}
       <div className="border-border flex flex-col gap-3 rounded-xl border p-4">
@@ -387,7 +397,7 @@ function Stepper({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+      <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {label}
       </span>
       <div className="border-border flex h-11 items-center justify-between rounded-lg border px-2">

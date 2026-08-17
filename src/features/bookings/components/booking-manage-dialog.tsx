@@ -3,7 +3,7 @@
 import { useCallback, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { LogIn, LogOut, Ban, UserX } from "lucide-react";
+import { LogIn, LogOut, Ban, UserX, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -26,15 +26,16 @@ import {
   checkOut,
   markNoShow,
 } from "@/features/bookings/front-desk-actions";
-import { cancelBooking } from "@/features/bookings/actions";
+import { cancelBooking, deleteBooking } from "@/features/bookings/actions";
 import { peso } from "@/features/bookings/pricing";
 import { type BookingStatus } from "@/features/bookings/schemas";
 import { PAYMENT_METHOD_LABELS } from "@/features/bookings/payment-schema";
 import { BookingConfirmedDialog } from "./booking-confirmed-dialog";
 import { RoomNumberBox } from "./room-number-box";
 import type { BookingDetail, BookingRow } from "@/features/bookings/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   weekday: "short",
   month: "short",
   day: "numeric",
@@ -49,9 +50,17 @@ function fmt(iso: string) {
 export function BookingManageDialog({
   bookingId,
   trigger,
+  canDelete = false,
 }: {
   bookingId: string;
   trigger: React.ReactElement<Record<string, unknown>>;
+  // Deleting is an administrator's correction, not a front-desk operation, so
+  // the button is absent rather than disabled for everyone else — a disabled
+  // control still says "this is a thing you nearly do here". Defaults to false:
+  // the caller has to have asked. The real refusal is the RLS policy on
+  // bookings (migration 20260817000100) and requireRole in the action; this
+  // prop only decides whether the button is drawn.
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -93,6 +102,25 @@ export function BookingManageDialog({
     setDetail(result.data);
     setOpen(false);
     setConfirmed({ booking: result.data.booking, paid: result.data.paid });
+  }
+
+  // Deleting can't go through runAction: that one refreshes the detail on
+  // success, and there is no detail left to read. Re-reading a deleted booking
+  // answers "Booking not found" and would toast an error directly on top of
+  // the success. So this closes the dialog and refreshes only the list behind
+  // it.
+  function onDelete(id: string) {
+    startTransition(async () => {
+      const result = await deleteBooking(id);
+      if (result.ok) {
+        setOpen(false);
+        setDetail(null);
+        toast.success(`Booking ${result.data.reference_code} deleted.`);
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Something went wrong.");
+      }
+    });
   }
 
   function runAction(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
@@ -246,6 +274,39 @@ export function BookingManageDialog({
                     trigger={
                       <Button size="sm" variant="outline" disabled={pending}>
                         <Ban className="size-4" /> Cancel
+                      </Button>
+                    }
+                  />
+                ) : null}
+
+                {/* Administrator only, and pushed to the far end away from the
+                  day-to-day buttons: this is a correction to the record, not a
+                  step in a stay. The description spells out the money because
+                  deleting takes it out of every report retrospectively — a
+                  cancellation at least leaves a row that explains itself. */}
+                {canDelete ? (
+                  <ConfirmDialog
+                    title="Delete this booking permanently?"
+                    description={
+                      `${b.guest_name} · ${b.reference_code} will be erased` +
+                      (detail.payments.length > 0
+                        ? `, along with ${detail.payments.length} payment${
+                            detail.payments.length === 1 ? "" : "s"
+                          } totalling ${peso.format(detail.paid)}`
+                        : "") +
+                      ". It leaves every report retrospectively and cannot be brought back — " +
+                      "cancel it instead if the booking happened and fell through."
+                    }
+                    confirmLabel="Delete permanently"
+                    onConfirm={() => onDelete(b.id)}
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={pending}
+                        className="ml-auto"
+                      >
+                        <Trash2 className="size-4" /> Delete
                       </Button>
                     }
                   />

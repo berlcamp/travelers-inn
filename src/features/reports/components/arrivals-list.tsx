@@ -3,8 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { BookingManageDialog } from "@/features/bookings/components/booking-manage-dialog";
 import type { RptBooking } from "@/features/reports/reports";
+import { innFormatter } from "@/lib/inn-time";
 
-const timeFmt = new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit" });
+const timeFmt = innFormatter({ hour: "numeric", minute: "2-digit" });
 function time(iso: string) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : timeFmt.format(d);

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parsePeriod } from "@/features/bookings/repository";
 import { deriveOccupancy, type OccupancyBooking, type RoomOccupancy } from "./occupancy";
 import type { Database } from "@/types/database.types";
+import { innAddDays, innStartOfDay } from "@/lib/inn-time";
 
 export type RoomType = Database["booking"]["Tables"]["room_types"]["Row"];
 export type RateTier = Database["booking"]["Tables"]["rate_tiers"]["Row"];
@@ -72,10 +73,10 @@ export type RoomWithOccupancy = RoomWithType & { occupancy: RoomOccupancy };
 export async function listRoomsWithOccupancy(): Promise<RoomWithOccupancy[]> {
   const supabase = await createClient();
   const now = new Date();
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
+  // Today AT THE INN — the arrivals clip below is a calendar day in Bayugan,
+  // which on the UTC server would have started at 8 AM. See lib/inn-time.ts.
+  const dayStart = innStartOfDay(now);
+  const dayEnd = innAddDays(dayStart, 1);
 
   const BOOKING_SELECT = "id, room_id, status, guest_name, period";
   const [{ data: rooms }, { data: inHouse }, { data: arriving }] = await Promise.all([

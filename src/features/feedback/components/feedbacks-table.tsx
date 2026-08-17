@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/select";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { FeedbackWithRoom } from "@/features/feedback/repository";
+import { innFormatter } from "@/lib/inn-time";
 
-const dt = new Intl.DateTimeFormat("en-PH", {
+const dt = innFormatter({
   month: "short",
   day: "numeric",
   year: "numeric",

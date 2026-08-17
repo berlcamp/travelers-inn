@@ -9,6 +9,14 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // The pure, unit-testable modules (features/reports/analytics.ts,
+    // features/reports/reports.ts, features/bookings/pricing.ts, lib/inn-time.ts)
+    // are imported BOTH by Next and by `node --experimental-strip-types` in
+    // supabase/tests/*.ts. Node's ESM resolver does no extension guessing and
+    // cannot read the "@/*" path alias, so those modules import each other as
+    // "../../lib/inn-time.ts" — which needs this flag. Safe here: noEmit is on,
+    // so nothing is ever written with an unresolvable specifier.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",

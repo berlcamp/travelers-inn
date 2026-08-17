@@ -1,6 +1,8 @@
-// Who is in a room right now, derived from bookings. Pure and import-free so
-// it unit-tests under `node --experimental-strip-types`, same as pricing.ts and
-// analytics.ts.
+// Who is in a room right now, derived from bookings. Pure — no I/O — so it
+// unit-tests under `node --experimental-strip-types`, same as pricing.ts and
+// analytics.ts; the only import allowed is another pure module, relative and
+// with its .ts extension so Node's resolver can find it.
+import { innSameDay } from "../../lib/inn-time.ts";
 //
 // This exists because a room's `status` column is HOUSEKEEPING state, not
 // occupancy: check-in writes `occupied` and check-out writes `cleaning`
@@ -55,13 +57,9 @@ export const OCCUPANCY_LABELS: Record<OccupancyKind, string> = {
 // deposit and the room is theirs.
 const ARRIVING = ["confirmed", "pending_verification"];
 
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
+// "Today" is today AT THE INN (src/lib/inn-time.ts) — on the UTC server the
+// calendar day rolled over at 8 AM, so an evening arrival read as tomorrow's.
+const sameDay = innSameDay;
 
 export function deriveOccupancy(
   roomId: string,

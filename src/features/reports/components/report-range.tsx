@@ -14,18 +14,21 @@ import {
 } from "@/components/ui/select";
 import { isoDate } from "@/features/reports/analytics";
 import type { ReportFilterOptions } from "@/features/reports/repository";
+import { innAddDays, innParts, innTime } from "@/lib/inn-time";
 
 // Presets are computed from the browser's clock at click time. The page itself
 // is rendered from the URL's from/to, so a report is always shareable and
 // reloadable — no hidden client state decides what the numbers cover. The two
 // filters work the same way and ride in the same query string.
 function presets(): { label: string; from: string; to: string }[] {
+  // Months and days as the INN counts them (src/lib/inn-time.ts) — a report
+  // range typed here is read back by the server on that same clock.
   const today = new Date();
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-  const weekAgo = new Date(today);
-  weekAgo.setDate(weekAgo.getDate() - 6);
+  const { year, month } = innParts(today);
+  const startOfMonth = innTime(year, month, 1);
+  const lastMonthStart = innTime(year, month - 1, 1);
+  const lastMonthEnd = innAddDays(startOfMonth, -1);
+  const weekAgo = innAddDays(today, -6);
 
   return [
     { label: "Today", from: isoDate(today), to: isoDate(today) },

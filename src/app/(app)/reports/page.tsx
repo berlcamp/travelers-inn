@@ -19,11 +19,12 @@ import {
   STATUS_LABEL,
 } from "@/features/reports/components/ledger-tables";
 import { peso } from "@/features/bookings/pricing";
+import { fromInnClock, innFormatter, innParts, innTime } from "@/lib/inn-time";
 
 export const metadata: Metadata = { title: "Reports" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const fullDate = new Intl.DateTimeFormat("en-PH", {
+const fullDate = innFormatter({
   month: "long",
   day: "numeric",
   year: "numeric",
@@ -31,8 +32,10 @@ const fullDate = new Intl.DateTimeFormat("en-PH", {
 
 // Defaults to the current month to date — the range an owner asks for most.
 function resolveRange(from?: string, to?: string): { from: string; to: string } {
+  // "This month" is the month at the inn — on the UTC server the 1st does not
+  // begin until 8 AM Manila. See src/lib/inn-time.ts.
   const today = new Date();
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthStart = innTime(innParts(today).year, innParts(today).month, 1);
   const a = from && DATE_RE.test(from) ? from : isoDate(monthStart);
   const b = to && DATE_RE.test(to) ? to : isoDate(today);
   return a <= b ? { from: a, to: b } : { from: b, to: a };
@@ -55,9 +58,7 @@ export default async function ReportsPage({
   const roomTypeId = options.roomTypes.some((t) => t.id === params.roomType)
     ? (params.roomType ?? null)
     : null;
-  const staffId = options.staff.some((s) => s.id === params.staff)
-    ? (params.staff ?? null)
-    : null;
+  const staffId = options.staff.some((s) => s.id === params.staff) ? (params.staff ?? null) : null;
 
   const data = await getReportData(from, to, { roomTypeId, staffId });
   const f = data.financial;
@@ -72,8 +73,8 @@ export default async function ReportsPage({
       <PageHeader
         title="Reports"
         description={
-          `${fullDate.format(new Date(`${from}T00:00:00`))} – ` +
-          `${fullDate.format(new Date(`${to}T00:00:00`))}${scope ? ` · ${scope}` : ""}`
+          `${fullDate.format(fromInnClock(from))} – ` +
+          `${fullDate.format(fromInnClock(to))}${scope ? ` · ${scope}` : ""}`
         }
         actions={<ExportButtons payments={f.payments} bookings={b.taken} from={from} to={to} />}
       />

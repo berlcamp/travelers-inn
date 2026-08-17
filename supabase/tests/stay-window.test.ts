@@ -3,6 +3,7 @@
 // No DB — actualStayWindow is pure. Relative imports (no @/ alias).
 import assert from "node:assert/strict";
 import { actualStayWindow } from "../../src/features/bookings/stay-window.ts";
+import { innTime } from "../../src/lib/inn-time.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -17,10 +18,11 @@ function test(name: string, fn: () => void) {
   }
 }
 
-// Local wall-clock, like every other date in this app: the inn is one site and
-// the desk types local times into datetime-local inputs.
+// INN wall-clock, like every other date in this app: the inn is one site and
+// the desk types its own local times into datetime-local inputs. See
+// src/lib/inn-time.ts for why that is pinned rather than inherited.
 function at(y: number, m: number, d: number, h: number, min = 0): Date {
-  return new Date(y, m - 1, d, h, min, 0, 0);
+  return innTime(y, m, d, h, min);
 }
 
 console.log("actual check-out window");

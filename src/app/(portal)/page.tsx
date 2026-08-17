@@ -5,27 +5,23 @@ import { RoomTypeCard } from "@/features/portal/components/room-type-card";
 import { FindUs } from "@/features/portal/components/find-us";
 import { listPortalAvailability } from "@/features/portal/repository";
 import { getPublicSettings } from "@/features/settings/repository";
+import { fromInnClock, innAddDays, innAtHour, innClockValue } from "@/lib/inn-time";
 
 export const metadata: Metadata = {
   title: "Book your stay",
-  description: "Comfortable rooms at Bañares Traveler's Inn — book in seconds, any hour of the day.",
+  description:
+    "Comfortable rooms at Bañares Traveler's Inn — book in seconds, any hour of the day.",
 };
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
+// Guest-facing dates are the INN's dates — "tonight" is tonight in Bayugan,
+// not in the server's zone or the guest's. See src/lib/inn-time.ts.
 function localToISO(local: string): string {
-  return new Date(local).toISOString();
+  return fromInnClock(local).toISOString();
 }
 function defaultWindow() {
-  const ci = new Date();
-  ci.setHours(14, 0, 0, 0);
-  const co = new Date(ci);
-  co.setDate(co.getDate() + 1);
-  co.setHours(12, 0, 0, 0);
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return { checkIn: fmt(ci), checkOut: fmt(co) };
+  const ci = innAtHour(new Date(), 14);
+  const co = innAtHour(innAddDays(ci, 1), 12);
+  return { checkIn: innClockValue(ci), checkOut: innClockValue(co) };
 }
 
 export default async function PortalHome({
@@ -49,25 +45,24 @@ export default async function PortalHome({
         {/* Fine dot-grid texture + soft brand glows — subtle depth on white, no heavy blobs. */}
         <div
           aria-hidden
-          className="absolute inset-0 -z-10 opacity-[0.5] [background-image:radial-gradient(circle_at_1px_1px,oklch(0.5_0.03_185)_1px,transparent_0)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+          className="absolute inset-0 -z-10 [background-image:radial-gradient(circle_at_1px_1px,oklch(0.5_0.03_185)_1px,transparent_0)] [mask-image:linear-gradient(to_bottom,black,transparent_85%)] [background-size:22px_22px] opacity-[0.5]"
         />
         <div
           aria-hidden
-          className="absolute -right-32 -top-24 -z-10 size-[30rem] rounded-full bg-[oklch(0.78_0.13_65)]/10 blur-3xl"
+          className="absolute -top-24 -right-32 -z-10 size-[30rem] rounded-full bg-[oklch(0.78_0.13_65)]/10 blur-3xl"
         />
         <div
           aria-hidden
-          className="absolute -left-40 top-24 -z-10 size-[26rem] rounded-full bg-[oklch(0.5_0.09_185)]/10 blur-3xl"
+          className="absolute top-24 -left-40 -z-10 size-[26rem] rounded-full bg-[oklch(0.5_0.09_185)]/10 blur-3xl"
         />
 
-        <div className="mx-auto w-full max-w-6xl px-5 pb-14 pt-16 sm:px-8 sm:pt-24">
-          <p className="mb-4 inline-flex items-center gap-2 text-sm font-medium uppercase tracking-[0.22em] text-[oklch(0.5_0.09_60)]">
+        <div className="mx-auto w-full max-w-6xl px-5 pt-16 pb-14 sm:px-8 sm:pt-24">
+          <p className="mb-4 inline-flex items-center gap-2 text-sm font-medium tracking-[0.22em] text-[oklch(0.5_0.09_60)] uppercase">
             <span className="h-px w-8 bg-[oklch(0.62_0.13_55)]" />
             Rest easy, arrive anytime
           </p>
-          <h1 className="font-[family-name:var(--font-fraunces)] max-w-3xl text-[2.75rem] font-semibold leading-[1.03] tracking-tight text-[oklch(0.22_0.02_60)] sm:text-6xl">
-            A warm room waiting,{" "}
-            <span className="text-primary italic">whenever</span> you travel.
+          <h1 className="max-w-3xl font-[family-name:var(--font-fraunces)] text-[2.75rem] leading-[1.03] font-semibold tracking-tight text-[oklch(0.22_0.02_60)] sm:text-6xl">
+            A warm room waiting, <span className="text-primary italic">whenever</span> you travel.
           </h1>
           <p className="text-muted-foreground mt-6 max-w-xl text-lg leading-relaxed">
             Nightly stays and short day-use rooms in the heart of town. Check availability, reserve
@@ -85,7 +80,7 @@ export default async function PortalHome({
               { icon: MapPin, label: "Balance on arrival" },
             ].map(({ icon: Icon, label }) => (
               <span key={label} className="text-foreground/80 inline-flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-full bg-[oklch(0.42_0.07_185)]/8 text-primary">
+                <span className="text-primary flex size-7 items-center justify-center rounded-full bg-[oklch(0.42_0.07_185)]/8">
                   <Icon className="size-3.5" />
                 </span>
                 {label}
@@ -97,7 +92,7 @@ export default async function PortalHome({
 
       {/* Results */}
       <section className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8">
-        <div className="mb-8 flex items-end justify-between gap-4 border-b border-border pb-4">
+        <div className="border-border mb-8 flex items-end justify-between gap-4 border-b pb-4">
           <div>
             <h2 className="font-[family-name:var(--font-fraunces)] text-3xl font-semibold tracking-tight">
               {searched ? "Available for your dates" : "Our rooms"}
@@ -108,13 +103,13 @@ export default async function PortalHome({
                 : "Thoughtfully kept rooms for every kind of traveler."}
             </p>
           </div>
-          <span className="text-muted-foreground shrink-0 rounded-full border border-border px-3 py-1 text-xs font-medium">
+          <span className="text-muted-foreground border-border shrink-0 rounded-full border px-3 py-1 text-xs font-medium">
             {options.length} room {options.length === 1 ? "type" : "types"}
           </span>
         </div>
 
         {options.length === 0 ? (
-          <p className="text-muted-foreground rounded-2xl border border-dashed border-border p-12 text-center">
+          <p className="text-muted-foreground border-border rounded-2xl border border-dashed p-12 text-center">
             No rooms match that search. Try different dates.
           </p>
         ) : (
