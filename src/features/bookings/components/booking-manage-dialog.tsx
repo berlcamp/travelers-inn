@@ -2,7 +2,6 @@
 
 import { useCallback, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { LogIn, LogOut, Ban, UserX, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -20,13 +19,14 @@ import { ReassignRoomSelect } from "./reassign-room-select";
 import { VerificationPanel } from "./verification-panel";
 import { ActivityTrail } from "./activity-trail";
 import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
+import { loadBookingDetail } from "@/features/bookings/front-desk-actions";
+import { deleteBooking } from "@/features/bookings/actions";
+import { applyTransition } from "@/features/bookings/apply-transition";
 import {
-  loadBookingDetail,
-  checkIn,
-  checkOut,
-  markNoShow,
-} from "@/features/bookings/front-desk-actions";
-import { cancelBooking, deleteBooking } from "@/features/bookings/actions";
+  allowedTransitions,
+  transitionDescription,
+  type TransitionTarget,
+} from "@/features/bookings/booking-transitions";
 import { peso } from "@/features/bookings/pricing";
 import { type BookingStatus } from "@/features/bookings/schemas";
 import { PAYMENT_METHOD_LABELS } from "@/features/bookings/payment-schema";
@@ -47,6 +47,13 @@ function fmt(iso: string) {
   return Number.isNaN(d.getTime()) ? "—" : dt.format(d);
 }
 
+const TRANSITION_ICON: Record<TransitionTarget, React.ComponentType<{ className?: string }>> = {
+  checked_in: LogIn,
+  checked_out: LogOut,
+  no_show: UserX,
+  cancelled: Ban,
+};
+
 export function BookingManageDialog({
   bookingId,
   trigger,
@@ -62,7 +69,6 @@ export function BookingManageDialog({
   // prop only decides whether the button is drawn.
   canDelete?: boolean;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<BookingDetail | null>(null);
   const [confirmed, setConfirmed] = useState<{ booking: BookingRow; paid: number } | null>(null);
@@ -82,9 +88,13 @@ export function BookingManageDialog({
     if (next) void load();
   }
 
+  // Only the dialog's OWN detail is re-read. The list, calendar and dashboard
+  // behind it are already fresh: every action here calls revalidatePath for
+  // those routes, and Next re-renders the current page inside the action's own
+  // response. A router.refresh() on top fetched the same page a second time —
+  // measured as a second full render plus another proxy auth round trip.
   function refresh() {
     void load();
-    router.refresh();
   }
 
   // Verifying a deposit is the moment an online booking becomes the guest's to
@@ -93,7 +103,6 @@ export function BookingManageDialog({
   // show the CONFIRMED row rather than the pending_verification one it was
   // opened with.
   async function onVerified() {
-    router.refresh();
     const result = await loadBookingDetail(bookingId);
     if (!result.ok) {
       toast.error(result.error);
@@ -104,11 +113,11 @@ export function BookingManageDialog({
     setConfirmed({ booking: result.data.booking, paid: result.data.paid });
   }
 
-  // Deleting can't go through runAction: that one refreshes the detail on
+  // Deleting can't go through runAction: that one re-reads the detail on
   // success, and there is no detail left to read. Re-reading a deleted booking
   // answers "Booking not found" and would toast an error directly on top of
-  // the success. So this closes the dialog and refreshes only the list behind
-  // it.
+  // the success. So this just closes the dialog — deleteBooking revalidates
+  // /bookings, so the list behind it is already redrawn without the row.
   function onDelete(id: string) {
     startTransition(async () => {
       const result = await deleteBooking(id);
@@ -116,7 +125,6 @@ export function BookingManageDialog({
         setOpen(false);
         setDetail(null);
         toast.success(`Booking ${result.data.reference_code} deleted.`);
-        router.refresh();
       } else {
         toast.error(result.error ?? "Something went wrong.");
       }
@@ -234,66 +242,42 @@ export function BookingManageDialog({
 
               {/* Lifecycle actions */}
               <div className="flex flex-wrap gap-2">
-                {/* Every one of these four moves the booking to a state it
-                    cannot be moved back out of from this dialog, and they sit
-                    side by side one tap apart — so each asks first. Check-in
-                    and check-out were the two that didn't. */}
-                {status === "confirmed" ? (
-                  <ConfirmDialog
-                    title="Check in this guest?"
-                    description={`${b.guest_name} takes room ${b.room?.label ?? ""} now, and it is marked occupied. Booked arrival is ${fmt(b.checkIn)}.`}
-                    confirmLabel="Check in"
-                    onConfirm={() => runAction(() => checkIn(b.id), "Checked in.")}
-                    trigger={
-                      <Button size="sm" disabled={pending}>
-                        <LogIn className="size-4" /> Check in
-                      </Button>
-                    }
-                  />
-                ) : null}
-                {status === "checked_in" ? (
-                  <ConfirmDialog
-                    title="Check out this guest?"
-                    // Check-out stamps the REAL departure time over the booked
-                    // window (features/bookings/stay-window.ts), so the clerk
-                    // is told what the recorded time will be — pressing this an
-                    // hour early records an hour early.
-                    description={`${b.guest_name} leaves room ${b.room?.label ?? ""}. The departure is recorded as now, not the booked ${fmt(b.checkOut)}, and the room goes to cleaning.`}
-                    confirmLabel="Check out"
-                    onConfirm={() => runAction(() => checkOut(b.id), "Checked out.")}
-                    trigger={
-                      <Button size="sm" disabled={pending}>
-                        <LogOut className="size-4" /> Check out
-                      </Button>
-                    }
-                  />
-                ) : null}
-                {status === "confirmed" ? (
-                  <ConfirmDialog
-                    title="Mark as no-show?"
-                    description={`${b.guest_name} did not arrive. This frees room ${b.room?.label ?? ""}.`}
-                    confirmLabel="Mark no-show"
-                    onConfirm={() => runAction(() => markNoShow(b.id), "Marked no-show.")}
-                    trigger={
-                      <Button size="sm" variant="outline" disabled={pending}>
-                        <UserX className="size-4" /> No-show
-                      </Button>
-                    }
-                  />
-                ) : null}
-                {status === "confirmed" || status === "checked_in" ? (
-                  <ConfirmDialog
-                    title="Cancel this booking?"
-                    description={`This frees room ${b.room?.label ?? ""} and cannot be undone.`}
-                    confirmLabel="Cancel booking"
-                    onConfirm={() => runAction(() => cancelBooking(b.id), "Booking cancelled.")}
-                    trigger={
-                      <Button size="sm" variant="outline" disabled={pending}>
-                        <Ban className="size-4" /> Cancel
-                      </Button>
-                    }
-                  />
-                ) : null}
+                {/* The same moves, in the same order, with the same wording as
+                    the status dropdown on the /bookings list — both render
+                    `allowedTransitions` (features/bookings/booking-transitions.ts).
+                    Two surfaces that disagree about which moves exist, or about
+                    what a move costs, is worse than either being wrong on its
+                    own: staff learn one and are caught out by the other.
+
+                    Every one of them moves the booking somewhere this dialog
+                    cannot move it back from, and they sit side by side one tap
+                    apart — so each asks first. */}
+                {allowedTransitions(status ?? "").map((t) => {
+                  const Icon = TRANSITION_ICON[t.to];
+                  return (
+                    <ConfirmDialog
+                      key={t.to}
+                      title={t.title}
+                      description={transitionDescription(t.to, {
+                        guestName: b.guest_name,
+                        roomLabel: b.room?.label ?? "",
+                        checkInText: fmt(b.checkIn),
+                        checkOutText: fmt(b.checkOut),
+                      })}
+                      confirmLabel={t.confirmLabel}
+                      onConfirm={() => runAction(() => applyTransition(t.to, b.id), t.success)}
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant={t.destructive ? "outline" : "default"}
+                          disabled={pending}
+                        >
+                          <Icon className="size-4" /> {t.label}
+                        </Button>
+                      }
+                    />
+                  );
+                })}
 
                 {/* Administrator only, and pushed to the far end away from the
                   day-to-day buttons: this is a correction to the record, not a
@@ -391,7 +375,6 @@ export function BookingManageDialog({
       <BookingConfirmedDialog
         booking={confirmed?.booking ?? null}
         paid={confirmed?.paid ?? 0}
-        onCheckedIn={() => router.refresh()}
         onOpenChange={(next) => {
           if (!next) setConfirmed(null);
         }}

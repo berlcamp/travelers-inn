@@ -4,14 +4,14 @@ import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { DataTable, includesValue } from "@/components/shared/data-table";
-import { BookingStatusBadge, PaymentStatusBadge } from "./booking-status-badge";
+import { PaymentStatusBadge } from "./booking-status-badge";
+import { BookingStatusSelect } from "./booking-status-select";
 import { BookingManageDialog } from "./booking-manage-dialog";
 import { peso } from "@/features/bookings/pricing";
 import {
   BOOKING_STATUSES,
   BOOKING_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
-  type BookingStatus,
 } from "@/features/bookings/schemas";
 import { BOOKING_SOURCE_LABELS } from "@/features/bookings/trail";
 import type { BookingRow } from "@/features/bookings/repository";
@@ -127,7 +127,11 @@ const makeColumns = (canDelete: boolean): ColumnDef<BookingRow>[] => [
     accessorKey: "status",
     header: "Status",
     filterFn: includesValue,
-    cell: ({ row }) => <BookingStatusBadge status={row.original.status as BookingStatus} />,
+    // The badge is also the control: a booking that can move on opens a menu of
+    // the moves the server will accept, each behind the same confirmation the
+    // manage dialog asks. One that can't keeps the plain badge — see
+    // BookingStatusSelect.
+    cell: ({ row }) => <BookingStatusSelect booking={row.original} />,
   },
   {
     accessorKey: "payment_status",
