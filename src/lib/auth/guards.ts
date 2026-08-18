@@ -18,25 +18,39 @@ export type CurrentUser = {
 };
 
 // Per-request cached identity: auth user + profile + role assignments.
+//
+// getClaims() rather than getUser(): it verifies the access token's signature
+// and expiry LOCALLY against the project's published JWKS (WebCrypto), where
+// getUser() posts the token to the Auth server and waits for the round trip.
+// Measured on this stack: 23.2ms vs 0.24ms per call — and on hosted Supabase
+// that round trip is a real internet hop, paid TWICE on every save (once in
+// proxy.ts, once here). If a project is still on a symmetric JWT secret,
+// getClaims falls back to a getUser-style request, so this is never worse.
+//
+// It is NOT getSession(): the signature is still checked, so the token cannot
+// be forged. What it skips is asking the Auth server whether that user still
+// exists. That is not the gate this app relies on — access is
+// `booking.profiles.is_active`, read from the database below (and again in
+// proxy.ts) on every single request, so a deactivated staff member is still
+// locked out on their very next click rather than when their token expires.
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) return null;
 
   const [{ data: profile }, { data: roles }] = await Promise.all([
     supabase
       .from("profiles")
       .select("email, full_name, avatar_url, is_active")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle(),
-    supabase.from("user_roles").select("role").eq("user_id", user.id),
+    supabase.from("user_roles").select("role").eq("user_id", userId),
   ]);
   if (!profile) return null;
 
   return {
-    id: user.id,
+    id: userId,
     email: profile.email,
     fullName: profile.full_name,
     avatarUrl: profile.avatar_url,

@@ -73,16 +73,18 @@ export function BookingConfirmedDialog({
   booking,
   paid,
   onOpenChange,
-  onCheckedIn,
 }: {
   /** Null closes the dialog — the caller sets it to open. A full `BookingRow`
    *  satisfies this too, which is how the manage dialog still passes its own. */
   booking: ConfirmedBooking | null;
   paid: number;
   onOpenChange: (open: boolean) => void;
-  /** Called after a successful check-in from here, so the caller can re-read
-   *  whatever it is showing. The panel closes itself either way. */
-  onCheckedIn?: () => void;
+  // There is deliberately no onCheckedIn callback. Both callers used it to
+  // router.refresh(), and `checkIn` already revalidates /bookings, /calendar
+  // and /dashboard — Next re-renders the current page inside the action's own
+  // response, so the list behind this panel is fresh before it closes. Leaving
+  // the hook here only invited a second, identical page fetch to be wired back
+  // in.
 }) {
   const [pending, startTransition] = useTransition();
   const balance = booking ? Number(booking.quoted_total) - paid : 0;
@@ -97,7 +99,6 @@ export function BookingConfirmedDialog({
             booking.room?.label ? `room ${booking.room.label}` : "their room"
           }.`
         );
-        onCheckedIn?.();
         onOpenChange(false);
       } else {
         // The booking is untouched and still confirmed, so the panel stays open

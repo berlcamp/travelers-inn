@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { BedDouble, CheckCircle2, Wallet, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -121,7 +120,6 @@ export function WalkInDialog({
   roomTypes: RoomTypeWithTiers[];
   prefill?: WalkInPrefill;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [freeRooms, setFreeRooms] = useState<{ id: string; label: string }[] | null>(null);
@@ -278,14 +276,16 @@ export function WalkInDialog({
         // queries — run while the guest stood at the counter waiting to be
         // told which room was theirs.
         //
-        // Opened before the refresh below, not after: router.refresh() re-runs
-        // the whole /bookings page on the server, and the clerk has no reason
-        // to wait for a list they are not looking at.
+        // There is deliberately NO router.refresh() here. createBooking calls
+        // revalidatePath("/bookings"), and Next re-renders the page INSIDE the
+        // action's own response — measured: revalidate alone is one request and
+        // one render, revalidate + refresh is two of each, the second paying
+        // the proxy's auth round trip again for a list nobody is looking at
+        // yet. The list behind this panel is already up to date.
         setConfirmed({ booking: confirmation, paid });
         setOpen(false);
         form.reset(defaults(prefill));
         setFreeRooms(null);
-        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -452,7 +452,6 @@ export function WalkInDialog({
       <BookingConfirmedDialog
         booking={confirmed?.booking ?? null}
         paid={confirmed?.paid ?? 0}
-        onCheckedIn={() => router.refresh()}
         onOpenChange={(next) => {
           if (!next) setConfirmed(null);
         }}

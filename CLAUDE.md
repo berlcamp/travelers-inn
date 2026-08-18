@@ -793,3 +793,111 @@ check_in` from the availability page: both of those are a deliberate
   text names the consequence people forget — it stamps the REAL departure time
   over the booked window (`stay-window.ts`), so pressing it an hour early
   records an hour early: "recorded as now, not the booked 12:00 noon".
+- **Status column is a dropdown — DONE** (no migration, no new server action).
+  The badge on `/bookings` is now also the control: staff move a booking on
+  from the row instead of opening the manage dialog to press one button. Every
+  move still asks first, in the same modal with the same words.
+  _It is NOT a free choice of all six statuses._ The menu offers only what the
+  server will accept from where the booking IS —
+  `features/bookings/booking-transitions.ts` `allowedTransitions(status)`:
+  `confirmed` → check in / no-show / cancel, `checked_in` → check out /
+  cancel, and **nothing else has moves**. Each maps to an action that already
+  existed (`apply-transition.ts` → `checkIn`/`checkOut`/`markNoShow`/
+  `cancelBooking`), so no generic "set status" was written: a generic one would
+  have to re-derive the side effects those already own (the room going to
+  occupied/cleaning, the real check-out time stamped over the booked window),
+  and `transition()` refuses a wrong `from` outright — an option that bounces
+  is how staff stop trusting the control.
+  **`pending_verification` deliberately has no moves**: confirming needs the
+  verified AMOUNT and rejecting needs a reason, so both stay in the manage
+  dialog's verification panel. A status with no moves keeps the plain badge it
+  always had, so the column stays scannable and nothing opens onto a dead menu.
+  An **unknown** status also gets nothing — the opposite of `booking-order.ts`
+  (where unknown sorts to the top as a visible nuisance) and for the same
+  reason: there being wrong costs a row's position, here it costs a control
+  that errors.
+  _One table, two surfaces_: the manage dialog's lifecycle buttons now render
+  from that same list, so the moves and the confirmation copy can't drift
+  between the row and the dialog. Wording is in the module too
+  (`transitionDescription`), which stays **import-free** — dates arrive
+  pre-formatted via `TransitionContext` — so it unit-tests under
+  `--experimental-strip-types`. Cancel and no-show now differ where it matters:
+  cancelling "takes any payment back out of revenue", a no-show "keeps anything
+  already paid" (`analytics.countsAsRevenue`). An unassigned room reads "the
+  room", not "room ".
+  _Mechanics_: `ConfirmDialog` gained optional `open`/`onOpenChange` (trigger
+  now optional) because the menu picks WHICH question to ask before opening it;
+  it renders as a **sibling** of the `DropdownMenu`, since a menu unmounts its
+  content exactly when the dialog has to appear (the `room-types-table`
+  precedent). Menu labels are verb phrases — an item reading just "Cancel" is
+  read as "dismiss this menu".
+  New `booking-transitions.test.ts` (17 unit). **262 total** (`npm run test:db`).
+- **`ui/button.tsx` is `"use client"` — hydration FIXED** (no migration). Every
+  page that passed `trigger={<Button>}` from a **Server Component** into a
+  client component's Base UI `render` prop threw a hydration mismatch on
+  `data-slot`: `/bookings`, `/rooms`, `/room-types`, `/users`.
+  _Why_: `Button` had no `"use client"`, so it was a SHARED component — in a
+  server page React evaluates it during the RSC pass, and the payload carries
+  its OUTPUT (`<ButtonPrimitive data-slot="button">`) rather than the
+  `<Button>` element. Base UI's `DialogTrigger` merges its own `elementProps`
+  (which include `data-slot="dialog-trigger"`, from `ui/dialog.tsx`) onto
+  whatever `render` gives it, and `Button` itself spreads `{...props}` AFTER
+  its own `data-slot="button"` — so which one lands in the DOM depends on
+  whether `Button` ran before or after the merge, and that differs between the
+  RSC pass and hydration. The winner even **flips** between reproductions,
+  which is the signature: not one side being wrong, but the two sides ordering
+  the same merge differently.
+  Marking `Button` a client component removes the asymmetry — the element stays
+  unevaluated in the payload, so SSR and hydration both call `Button` with the
+  merged props and agree. Nothing styles on `data-slot=button` /
+  `dialog-trigger` (only `input-group`/`field` slots use `[data-slot=…]`
+  selectors), so which one wins doesn't matter; that it is STABLE does.
+  _Reproduced deliberately_ on a throwaway public route before and after the
+  one-line fix, rather than reasoned about — `/search` is already in
+  `PUBLIC_PATHS` (`lib/supabase/middleware.ts`) and has no page, so it makes a
+  free probe for anything needing a browser without Google sign-in. Delete it
+  afterwards.
+  _Rule_: a `ui/*` component passed into a Base UI `render`/`trigger` prop from
+  a Server Component needs `"use client"`. Still shared and unmarked:
+  `badge.tsx`, `card.tsx`, `input.tsx`, `skeleton.tsx`, `textarea.tsx` — none
+  is a render target today, so none was touched.
+- **Saving a booking costs half the round trips — DONE** (no migration). Two
+  independent causes, both measured rather than reasoned about.
+  _1. `router.refresh()` after an action that already revalidates renders the
+  page TWICE._ Proven on a throwaway route: `revalidatePath` alone = **one**
+  request and **one** render, with the DOM updated; `revalidatePath` +
+  `router.refresh()` = **two** of each. Next re-renders the current page inside
+  the server action's OWN response, so the extra refresh re-fetched an
+  identical list and paid `proxy.ts`'s auth round trip again — for a page the
+  clerk isn't even looking at yet (the confirmation panel is over it). Removed
+  from the walk-in dialog, the status dropdown, the manage dialog (`refresh()`
+  now only re-reads its OWN detail, which revalidation cannot touch — that is
+  client state), `onVerified` and `onDelete`. `BookingConfirmedDialog` lost its
+  `onCheckedIn` prop entirely: both callers used it to `router.refresh()`, and
+  leaving the hook there only invited the second fetch to be wired back in.
+  **Rule: after a server action that revalidates the current route, do NOT
+  `router.refresh()`.** Refresh only for client state, or when the action
+  revalidates a route you are not on.
+  _2. `auth.getUser()` is a network call; `auth.getClaims()` is not._ Measured
+  on this stack: **23.21ms vs 0.24ms** per call — and on hosted Supabase that
+  is a real internet hop, paid TWICE per save (`proxy.ts`, then `requireRole`)
+  and once more per navigation. `getClaims()` verifies the token's signature
+  and expiry locally against the project's published JWKS via WebCrypto.
+  Swapped in `lib/supabase/middleware.ts` and `lib/auth/guards.ts`
+  (`claims.claims.sub` is the id); the auth callback keeps `getUser()` — it
+  runs once at sign-in and wants the full user record.
+  **This is not `getSession()`** — the signature is still checked, so a token
+  can't be forged. What it skips is asking the Auth server whether the user
+  still exists, which was never this app's gate: access is
+  `booking.profiles.is_active`, still read from the DB on every request in both
+  places, so a deactivated member is locked out on their next click rather than
+  when their token expires.
+  ⚠️ **The payoff needs asymmetric JWT signing keys.** The local stack already
+  publishes ES256 (`/auth/v1/.well-known/jwks.json`). On a project still using
+  the legacy symmetric secret, `getClaims()` falls back to a getUser-style
+  request — same behaviour as before, no regression, but no gain either until
+  the keys are migrated in Dashboard → Authentication → JWT Keys.
+  _Net for one walk-in_: 2 page renders → **1**, and 4 Auth-server round trips
+  → **0**. What is left on the critical path is the work itself:
+  `fn_create_booking`, then the payment insert and the label lookup in
+  parallel.
